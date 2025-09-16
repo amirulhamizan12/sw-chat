@@ -1,5 +1,3 @@
-"use client";
-
 // ========== TYPES & INTERFACES ==========
 export interface OpenRouterModel {
   id: string;
@@ -51,10 +49,21 @@ export interface OpenRouterError {
 
 // ========== CONFIGURATION ==========
 const OPENROUTER_BASE_URL = 'https://openrouter.ai/api/v1';
-const OPENROUTER_API_KEY = process.env.NEXT_PUBLIC_OPENROUTER_API_KEY;
+
+// Support both client and server-side API key access
+const getApiKey = (): string => {
+  // Server-side: try OPENROUTER_API_KEY first, then NEXT_PUBLIC_OPENROUTER_API_KEY
+  if (typeof window === 'undefined') {
+    return process.env.OPENROUTER_API_KEY || process.env.NEXT_PUBLIC_OPENROUTER_API_KEY || '';
+  }
+  // Client-side: only NEXT_PUBLIC_OPENROUTER_API_KEY
+  return process.env.NEXT_PUBLIC_OPENROUTER_API_KEY || '';
+};
+
+const OPENROUTER_API_KEY = getApiKey();
 
 if (!OPENROUTER_API_KEY) {
-  console.warn('OpenRouter API key not found. Please set NEXT_PUBLIC_OPENROUTER_API_KEY in your environment variables.');
+  console.warn('OpenRouter API key not found. Please set OPENROUTER_API_KEY (server-side) or NEXT_PUBLIC_OPENROUTER_API_KEY (client-side) in your environment variables.');
 }
 
 // ========== SERVICE CLASS ==========
@@ -75,7 +84,7 @@ export class OpenRouterService {
     return {
       'Authorization': `Bearer ${this.apiKey}`,
       'Content-Type': 'application/json',
-      'HTTP-Referer': typeof window !== 'undefined' ? window.location.origin : 'http://localhost:3000',
+      'HTTP-Referer': typeof window !== 'undefined' ? window.location.origin : 'https://superwizard-studio.vercel.app',
       'X-Title': 'SuperWizard Studio',
     };
   }

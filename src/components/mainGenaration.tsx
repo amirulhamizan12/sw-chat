@@ -1,7 +1,10 @@
 "use client";
-import { useState, useRef, useEffect, KeyboardEvent } from 'react';
-import { Send, Loader2, ChevronDown, Zap, MessageSquare, Copy, Check, RefreshCw, AlertCircle, Sparkles, Square } from 'lucide-react';
-import { openRouterService, OpenRouterModel, OpenRouterMessage, formatModelName, formatProvider, calculateCost } from '@/services/openrouterService';
+import { useState, useRef, useEffect } from 'react';
+import { Zap, MessageSquare, Copy, Check, RefreshCw, AlertCircle, Sparkles } from 'lucide-react';
+import { OpenRouterModel, OpenRouterMessage, formatModelName, formatProvider, calculateCost, OpenRouterService } from '@/services/openrouterService';
+import { chatService, ChatRequest } from '@/services/chatService';
+import ModelSelector from './ModelSelector';
+import MessageInput from './MessageInput';
 
 // ===========================
 // TYPES & INTERFACES
@@ -25,7 +28,7 @@ interface Message {
     totalResponseTime?: number;
     actualResponseTime?: number;
   };
-  rawResponse?: any;
+  rawResponse?: ApiResponseData;
 }
 
 interface ApiResponseData {
@@ -38,8 +41,19 @@ interface ApiResponseData {
   capabilities: string[];
   limits: { maxTokens: number; outputTokenLimit: number; contextWindow: number; };
   endpoints: { chat: string; };
-  requestData?: any;
-  responseData?: any;
+  requestData?: {
+    model?: string;
+    messages?: Array<{ content?: string; role?: string; }>;
+    stream?: boolean;
+    temperature?: number;
+    max_tokens?: number;
+  };
+  responseData?: {
+    content?: string;
+    usage?: { prompt_tokens: number; completion_tokens: number; total_tokens: number; };
+    timing?: Record<string, unknown>;
+    cost?: number;
+  };
   timestamp: Date;
 }
 
@@ -49,109 +63,8 @@ interface ApiResponseData {
 
 const getModelDisplayName = (model: OpenRouterModel) => formatModelName(model.id);
 const getModelProvider = (model: OpenRouterModel) => formatProvider(model.id);
-const getModelCost = (model: OpenRouterModel) => `${model.pricing.prompt}/${model.pricing.completion} per 1K tokens`;
 const formatTime = (ms: number) => ms < 1000 ? `${ms.toFixed(0)}ms` : `${(ms / 1000).toFixed(2)}s`;
 
-// ===========================
-// MODEL SELECTOR COMPONENT
-// ===========================
-
-const ModelSelector = ({ selectedModel, onModelChange, isOpen, onToggle, availableModels, isLoading }: {
-  selectedModel: OpenRouterModel | null;
-  onModelChange: (model: OpenRouterModel) => void;
-  isOpen: boolean;
-  onToggle: () => void;
-  availableModels: OpenRouterModel[];
-  isLoading: boolean;
-}) => {
-  const dropdownRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
-        onToggle();
-      }
-    };
-    if (isOpen) document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, [isOpen, onToggle]);
-
-  return (
-    <div className="relative" ref={dropdownRef}>
-      <button
-        onClick={onToggle}
-        className="flex items-center justify-between w-full px-3 py-2 bg-dark-200 border border-dark-400/40 rounded-lg hover:bg-dark-300 hover:border-orange-500/40 group"
-      >
-        <div className="flex items-center space-x-2">
-          {isLoading && <Loader2 className="w-4 h-4 text-orange-400" />}
-          <div className="text-left">
-            <div className="text-white font-semibold text-sm">
-              {selectedModel ? getModelDisplayName(selectedModel) : 'Select Model'}
-            </div>
-            <div className="text-gray-400 text-xs">
-              {selectedModel ? `${getModelProvider(selectedModel)} • ${selectedModel.context_length.toLocaleString()} tokens` : 'Choose model'}
-            </div>
-          </div>
-        </div>
-        <div className="flex items-center space-x-2">
-          {selectedModel && <div className="px-2 py-1 bg-orange-500 text-white text-xs rounded font-medium">Active</div>}
-          <ChevronDown className={`w-4 h-4 text-gray-300 ${isOpen ? 'rotate-180' : ''}`} />
-        </div>
-      </button>
-
-      {isOpen && (
-        <div className="absolute top-full left-0 right-0 mt-4 bg-dark-200/98 border border-dark-400/60 rounded-2xl z-50 max-h-96 overflow-hidden">
-          <div className="max-h-96 overflow-y-auto scrollbar-thin scrollbar-thumb-gray-600 scrollbar-track-transparent">
-            {isLoading ? (
-              <div className="flex items-center justify-center py-12">
-                <Loader2 className="w-8 h-8 text-orange-400" />
-                <span className="ml-3 text-gray-400 text-lg">Loading models...</span>
-              </div>
-            ) : availableModels.length === 0 ? (
-              <div className="flex items-center justify-center py-12">
-                <AlertCircle className="w-8 h-8 text-red-400" />
-                <span className="ml-3 text-gray-400 text-lg">No models available</span>
-              </div>
-            ) : (
-              <div className="p-3">
-                {availableModels.map((model) => (
-                  <button
-                    key={model.id}
-                    onClick={() => { onModelChange(model); onToggle(); }}
-                    className={`w-full p-2 text-left rounded-lg group ${
-                      selectedModel?.id === model.id 
-                        ? 'bg-orange-500/25 border border-orange-500/40' 
-                        : 'hover:bg-dark-300/60 border border-transparent'
-                    }`}
-                  >
-                    <div className="flex items-center justify-between">
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center space-x-2 mb-1">
-                          <span className="text-white font-semibold text-sm">{getModelDisplayName(model)}</span>
-                          <span className="px-1.5 py-0.5 bg-dark-400/60 text-gray-300 text-xs rounded font-medium">
-                            {getModelProvider(model)}
-                          </span>
-                          {selectedModel?.id === model.id && (
-                            <span className="px-1.5 py-0.5 bg-orange-500 text-white text-xs rounded font-bold">Selected</span>
-                          )}
-                        </div>
-                        <div className="flex items-center space-x-1 text-xs text-gray-400">
-                          <span>{model.context_length.toLocaleString()} tokens</span>
-                          <span>•</span>
-                          <span>{getModelCost(model)}</span>
-                        </div>
-                      </div>
-                    </div>
-                  </button>
-                ))}
-              </div>
-            )}
-          </div>
-        </div>
-      )}
-    </div>
-  );
-};
 
 // ===========================
 // RESPONSE TYPE SELECTOR
@@ -409,10 +322,10 @@ const JsonResponseViewer = ({ responseData, isStreaming }: {
   const getSimplifiedResponseData = (data: ApiResponseData) => ({
     model: { id: data.id, name: data.name, author: data.author },
     request: {
-      message: data.requestData.messages[0]?.content || 'No message',
-      stream: data.requestData.stream,
-      temperature: data.requestData.temperature,
-      max_tokens: data.requestData.max_tokens
+      message: data.requestData?.messages?.[0]?.content || 'No message',
+      stream: data.requestData?.stream,
+      temperature: data.requestData?.temperature,
+      max_tokens: data.requestData?.max_tokens
     },
     response: data.responseData || null,
     timestamp: data.timestamp
@@ -471,91 +384,6 @@ const JsonResponseViewer = ({ responseData, isStreaming }: {
   );
 };
 
-// ===========================
-// MESSAGE INPUT COMPONENT
-// ===========================
-
-const MessageInput = ({ onSendMessage, onStopGeneration, isLoading, isGenerating, placeholder = "Type your message..." }: {
-  onSendMessage: (message: string) => void;
-  onStopGeneration: () => void;
-  isLoading: boolean;
-  isGenerating: boolean;
-  placeholder?: string;
-}) => {
-  const [message, setMessage] = useState('');
-  const textareaRef = useRef<HTMLTextAreaElement>(null);
-
-  const handleSubmit = () => {
-    if (message.trim() && !isLoading) {
-      onSendMessage(message.trim());
-      setMessage('');
-      setTimeout(() => { if (textareaRef.current) textareaRef.current.style.height = '24px'; }, 0);
-    }
-  };
-
-  const handleKeyPress = (e: KeyboardEvent<HTMLTextAreaElement>) => {
-    if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSubmit(); }
-  };
-
-  const autoResize = () => {
-    const textarea = textareaRef.current;
-    if (textarea) {
-      textarea.style.height = 'auto';
-      textarea.style.height = Math.min(textarea.scrollHeight, 100) + 'px';
-    }
-  };
-
-  useEffect(() => autoResize(), [message]);
-  const hasContent = message.trim().length > 0;
-
-  return (
-    <div className="relative group">
-      <div className={`relative flex items-end gap-3 p-3 rounded-xl bg-dark-200/80 border border-dark-400/30 ${isLoading ? 'opacity-70' : ''} min-h-[48px]`}>
-        <div className="flex-1 relative">
-          <textarea
-            ref={textareaRef}
-            value={message}
-            onChange={(e) => setMessage(e.target.value)}
-            onKeyPress={handleKeyPress}
-            placeholder={placeholder}
-            disabled={isLoading}
-            className="w-full bg-transparent border-0 focus:outline-none placeholder:text-gray-400 text-white resize-none min-h-[24px] max-h-[100px] text-sm leading-relaxed pr-2 scrollbar-hide"
-            rows={1}
-            style={{ height: '24px', scrollbarWidth: 'none', msOverflowStyle: 'none' }}
-          />
-        </div>
-        {isGenerating ? (
-          <button
-            onClick={onStopGeneration}
-            className="w-9 h-9 rounded-full flex items-center justify-center bg-red-500 hover:bg-red-600 text-white transition-all duration-200 shadow-lg hover:shadow-red-500/25"
-            title="Stop generation"
-          >
-            <Square className="w-4 h-4" />
-          </button>
-        ) : (
-          <button
-            onClick={handleSubmit}
-            disabled={!hasContent || isLoading}
-            className={`w-9 h-9 rounded-full flex items-center justify-center transition-all duration-200 ${
-              hasContent && !isLoading
-                ? 'bg-orange-500 hover:bg-orange-600 shadow-lg hover:shadow-orange-500/25'
-                : 'bg-dark-400 text-gray-600 cursor-not-allowed'
-            }`}
-            title={isLoading ? 'Sending...' : 'Send message'}
-          >
-            {isLoading ? (
-              <Loader2 className="w-4 h-4 text-white animate-spin" />
-            ) : (
-              <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7l5 5m0 0l-5 5m5-5H6" />
-              </svg>
-            )}
-          </button>
-        )}
-      </div>
-    </div>
-  );
-};
 
 // ===========================
 // MAIN COMPONENT
@@ -569,7 +397,6 @@ export default function MainGeneration() {
   const [isModelSelectorOpen, setIsModelSelectorOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [isTyping, setIsTyping] = useState(false);
-  const [isLoadingModels, setIsLoadingModels] = useState(false);
   const [isConnected, setIsConnected] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [abortController, setAbortController] = useState<AbortController | null>(null);
@@ -584,39 +411,32 @@ export default function MainGeneration() {
   // ===========================
 
   useEffect(() => {
-    const initializeOpenRouter = async () => {
+    const initializeChat = async () => {
       try {
-        setIsLoadingModels(true);
         setError(null);
-        console.log('Initializing OpenRouter...', { service: !!openRouterService, apiKey: !!process.env.NEXT_PUBLIC_OPENROUTER_API_KEY });
+        console.log('Initializing chat service...');
         
-        if (!openRouterService) throw new Error('OpenRouter service not available');
+        // Load models directly from OpenRouterService (no API call needed)
+        const openRouterService = new OpenRouterService();
+        const models = await openRouterService.getModels();
         
-        const connected = await openRouterService.testConnection();
-        console.log('Connection result:', connected);
-        setIsConnected(connected);
+        setAvailableModels(models);
+        setIsConnected(true); // Always connected since we have hardcoded models
         
-        if (connected) {
-          const models = await openRouterService.getModels();
-          setAvailableModels(models);
-          
-          if (!selectedModel && models.length > 0) {
-            const preferredModelIds = ['google/gemini-2.5-flash', 'google/gemini-2.0-flash-001', 'openai/gpt-5', 'meta-llama/llama-4-maverick'];
-            const defaultModel = models.find(model => preferredModelIds.includes(model.id)) || models[0];
-            setSelectedModel(defaultModel);
-          }
-        } else {
-          setError('Failed to connect to OpenRouter API. Please check your API key.');
+        if (!selectedModel && models.length > 0) {
+          const preferredModelIds = ['google/gemini-2.5-flash', 'google/gemini-2.0-flash-001', 'openai/gpt-5', 'meta-llama/llama-4-maverick'];
+          const defaultModel = models.find(model => preferredModelIds.includes(model.id)) || models[0];
+          setSelectedModel(defaultModel);
         }
+        
+        console.log('Chat service initialized with', models.length, 'models');
       } catch (err) {
-        console.error('Error initializing OpenRouter:', err);
-        setError(err instanceof Error ? err.message : 'Failed to initialize OpenRouter');
+        console.error('Error initializing chat service:', err);
+        setError(err instanceof Error ? err.message : 'Failed to initialize chat service');
         setIsConnected(false);
-      } finally {
-        setIsLoadingModels(false);
       }
     };
-    initializeOpenRouter();
+    initializeChat();
   }, [selectedModel]);
 
   // ===========================
@@ -643,11 +463,57 @@ export default function MainGeneration() {
     }
   };
 
+  const sanitizeInput = (input: string): string => {
+    // Remove potentially harmful characters and limit length
+    return input
+      .replace(/[<>]/g, '') // Remove < and > to prevent XSS
+      .replace(/javascript:/gi, '') // Remove javascript: protocol
+      .replace(/on\w+=/gi, '') // Remove event handlers
+      .trim()
+      .slice(0, 10000); // Limit to 10k characters
+  };
+
+  const validateInput = (input: string): { isValid: boolean; error?: string } => {
+    if (!input || input.trim().length === 0) {
+      return { isValid: false, error: 'Message cannot be empty' };
+    }
+    
+    if (input.length > 10000) {
+      return { isValid: false, error: 'Message too long (max 10,000 characters)' };
+    }
+    
+    // Check for suspicious patterns
+    const suspiciousPatterns = [
+      /<script/i,
+      /javascript:/i,
+      /on\w+\s*=/i,
+      /eval\s*\(/i,
+      /expression\s*\(/i,
+    ];
+    
+    for (const pattern of suspiciousPatterns) {
+      if (pattern.test(input)) {
+        return { isValid: false, error: 'Message contains potentially harmful content' };
+      }
+    }
+    
+    return { isValid: true };
+  };
+
   const handleSendMessage = async (content: string) => {
     if (!selectedModel) { setError('Please select a model first'); return; }
-    if (!isConnected) { setError('Not connected to OpenRouter API. Please check your connection.'); return; }
+    if (!isConnected) { setError('Not connected to chat service. Please check your connection.'); return; }
 
-    const userMessage: Message = { id: `user-${Date.now()}`, type: 'user', content, timestamp: new Date() };
+    // Validate and sanitize input
+    const validation = validateInput(content);
+    if (!validation.isValid) {
+      setError(validation.error || 'Invalid input');
+      return;
+    }
+
+    const sanitizedContent = sanitizeInput(content);
+
+    const userMessage: Message = { id: `user-${Date.now()}`, type: 'user', content: sanitizedContent, timestamp: new Date() };
     setMessages(prev => [...prev, userMessage]);
     setIsLoading(true);
     setIsTyping(true);
@@ -683,8 +549,8 @@ export default function MainGeneration() {
     setCurrentApiResponse(apiResponseData);
 
     try {
-      const apiMessages: OpenRouterMessage[] = [{ role: 'user', content }];
-      const request = {
+      const apiMessages: OpenRouterMessage[] = [{ role: 'user', content: sanitizedContent }];
+      const request: ChatRequest = {
         model: selectedModel.id,
         messages: apiMessages,
         stream: responseType === 'streaming',
@@ -713,7 +579,7 @@ export default function MainGeneration() {
         let finalUsage: { prompt_tokens: number; completion_tokens: number; total_tokens: number; } | undefined;
 
         try {
-          for await (const chunk of openRouterService.createStreamingCompletion(request, controller)) {
+          for await (const chunk of chatService.createStreamingCompletion(request)) {
             if (controller.signal.aborted) break;
             
             if (chunk.usage) finalUsage = chunk.usage;
@@ -768,7 +634,7 @@ export default function MainGeneration() {
           } : msg
         ));
       } else {
-        const response = await openRouterService.createCompletion(request, controller);
+        const response = await chatService.createCompletion(request);
         if (!response) return;
         
         const content = response.choices[0]?.message?.content || 'No response received';
@@ -848,7 +714,6 @@ export default function MainGeneration() {
                   isOpen={isModelSelectorOpen}
                   onToggle={() => setIsModelSelectorOpen(!isModelSelectorOpen)}
                   availableModels={availableModels}
-                  isLoading={isLoadingModels}
                 />
               </div>
               
