@@ -2,14 +2,20 @@
 
 :root {
   --background: #ffffff;
-  --foreground: #171717;
+  --foreground: #000000;
   
   /* Custom dark theme colors */
-  --dark-100: #0a0a0a;
+  --dark-100: #000000;
   --dark-200: #1a1a1a;
   --dark-300: #2a2a2a;
   --dark-400: #3a3a3a;
   --dark-500: #4a4a4a;
+  
+  /* Blue secondary color */
+  --blue-primary: #016ffe;
+  --blue-hover: #0056cc;
+  --blue-light: #3385ff;
+  --blue-dark: #0047a3;
 }
 
 @theme inline {
@@ -24,12 +30,18 @@
   --color-dark-300: var(--dark-300);
   --color-dark-400: var(--dark-400);
   --color-dark-500: var(--dark-500);
+  
+  /* Blue secondary colors */
+  --color-blue-primary: var(--blue-primary);
+  --color-blue-hover: var(--blue-hover);
+  --color-blue-light: var(--blue-light);
+  --color-blue-dark: var(--blue-dark);
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+    --background: #000000;
+    --foreground: #ffffff;
   }
 }
 
@@ -113,3 +125,28 @@ body {
 .bg-dark-300\/80 { background-color: rgba(42, 42, 42, 0.8); }
 .border-dark-400\/30 { border-color: rgba(58, 58, 58, 0.3); }
 .border-dark-200\/50 { border-color: rgba(34, 34, 34, 0.5); }
+
+/* Blue color utility classes */
+.bg-blue-primary { background-color: var(--blue-primary); }
+.bg-blue-hover { background-color: var(--blue-hover); }
+.bg-blue-light { background-color: var(--blue-light); }
+.bg-blue-dark { background-color: var(--blue-dark); }
+
+.text-blue-primary { color: var(--blue-primary); }
+.text-blue-hover { color: var(--blue-hover); }
+.text-blue-light { color: var(--blue-light); }
+.text-blue-dark { color: var(--blue-dark); }
+
+.border-blue-primary { border-color: var(--blue-primary); }
+.border-blue-hover { border-color: var(--blue-hover); }
+.border-blue-light { border-color: var(--blue-light); }
+.border-blue-dark { border-color: var(--blue-dark); }
+
+.hover\:bg-blue-hover:hover { background-color: var(--blue-hover); }
+.hover\:text-blue-hover:hover { color: var(--blue-hover); }
+.hover\:border-blue-hover:hover { border-color: var(--blue-hover); }
+
+.bg-blue-primary\/20 { background-color: rgba(1, 111, 254, 0.2); }
+.bg-blue-primary\/25 { background-color: rgba(1, 111, 254, 0.25); }
+.bg-blue-primary\/40 { background-color: rgba(1, 111, 254, 0.4); }
+.border-blue-primary\/40 { border-color: rgba(1, 111, 254, 0.4); }

@@ -26,7 +26,7 @@ export class ChatService {
 
   async createCompletion(request: ChatRequest): Promise<OpenRouterResponse> {
     try {
-      const response = await fetch(`${this.baseUrl}/chat`, {
+      const response = await fetch(`${this.baseUrl}/v1`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -48,7 +48,7 @@ export class ChatService {
 
   async *createStreamingCompletion(request: ChatRequest): AsyncGenerator<OpenRouterStreamChunk, void, unknown> {
     try {
-      const response = await fetch(`${this.baseUrl}/chat`, {
+      const response = await fetch(`${this.baseUrl}/v1`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
