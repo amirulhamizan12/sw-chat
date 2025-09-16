@@ -584,18 +584,8 @@ export default function MainGeneration() {
             
             if (chunk.usage) finalUsage = chunk.usage;
             
-            // Add debugging for production issues
-            if (!chunk.choices) {
-              console.warn('Streaming chunk missing choices array:', chunk);
-              continue;
-            }
-            
-            if (chunk.choices.length === 0) {
-              console.warn('Streaming chunk has empty choices array:', chunk);
-              continue;
-            }
-            
-            if (chunk.choices && chunk.choices.length > 0 && chunk.choices[0]?.delta?.content) {
+            // Safe access to chunk.choices with proper null/undefined checks
+            if (chunk.choices && Array.isArray(chunk.choices) && chunk.choices.length > 0 && chunk.choices[0]?.delta?.content) {
               if (!firstTokenReceived) {
                 firstTokenTime = Date.now();
                 firstTokenReceived = true;
@@ -608,6 +598,9 @@ export default function MainGeneration() {
               }
               fullContent += chunk.choices[0].delta.content;
               setMessages(prev => prev.map(msg => msg.id === assistantMessage.id ? { ...msg, content: fullContent } : msg));
+            } else if (chunk.choices && Array.isArray(chunk.choices) && chunk.choices.length > 0) {
+              // Log when we have choices but no content (for debugging)
+              console.log('Streaming chunk received with choices but no content:', chunk.choices[0]);
             }
           }
         } catch (streamError) {
@@ -648,20 +641,10 @@ export default function MainGeneration() {
         const response = await chatService.createCompletion(request);
         if (!response) return;
         
-        // Add debugging for production issues
-        if (!response.choices) {
-          console.warn('API response missing choices array:', response);
-          setError('Invalid response format from API');
-          return;
-        }
-        
-        if (response.choices.length === 0) {
-          console.warn('API response has empty choices array:', response);
-          setError('No response choices available from API');
-          return;
-        }
-        
-        const content = (response.choices && response.choices.length > 0) ? response.choices[0]?.message?.content || 'No response received' : 'No response received';
+        // Safe access to response.choices with proper null/undefined checks
+        const content = (response.choices && Array.isArray(response.choices) && response.choices.length > 0 && response.choices[0]?.message?.content) 
+          ? response.choices[0].message.content 
+          : 'No response received';
         const responseEnd = Date.now();
         const totalResponseTime = responseEnd - requestStart;
         const actualResponseTime = totalResponseTime;
