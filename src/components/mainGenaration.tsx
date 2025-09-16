@@ -421,13 +421,33 @@ const JsonResponseViewer = ({ responseData, isStreaming }: {
   isStreaming: boolean;
 }) => {
   const [copied, setCopied] = useState(false);
+  const [showFullData, setShowFullData] = useState(false);
 
   const handleCopy = () => {
     if (responseData) {
-      navigator.clipboard.writeText(JSON.stringify(responseData, null, 2));
+      const dataToCopy = showFullData ? responseData : getSimplifiedResponseData(responseData);
+      navigator.clipboard.writeText(JSON.stringify(dataToCopy, null, 2));
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
     }
+  };
+
+  const getSimplifiedResponseData = (data: ApiResponseData) => {
+    return {
+      model: {
+        id: data.id,
+        name: data.name,
+        author: data.author
+      },
+      request: {
+        message: data.requestData.messages[0]?.content || 'No message',
+        stream: data.requestData.stream,
+        temperature: data.requestData.temperature,
+        max_tokens: data.requestData.max_tokens
+      },
+      response: data.responseData || null,
+      timestamp: data.timestamp
+    };
   };
 
   if (!responseData) {
@@ -446,6 +466,8 @@ const JsonResponseViewer = ({ responseData, isStreaming }: {
     );
   }
 
+  const displayData = showFullData ? responseData : getSimplifiedResponseData(responseData);
+
   return (
     <div className="h-full flex flex-col">
       {/* Header */}
@@ -460,19 +482,28 @@ const JsonResponseViewer = ({ responseData, isStreaming }: {
             </div>
           )}
         </div>
-        <button
-          onClick={handleCopy}
-          className="p-1.5 hover:bg-dark-500 rounded-lg transition-colors"
-          title="Copy JSON"
-        >
-          {copied ? <Check className="w-4 h-4 text-green-400" /> : <Copy className="w-4 h-4 text-gray-400 hover:text-white" />}
-        </button>
+        <div className="flex items-center space-x-2">
+          <button
+            onClick={() => setShowFullData(!showFullData)}
+            className="px-2 py-1 text-xs bg-dark-400 hover:bg-dark-500 text-gray-300 rounded transition-colors"
+            title={showFullData ? "Show simplified view" : "Show full data"}
+          >
+            {showFullData ? "Simple" : "Full"}
+          </button>
+          <button
+            onClick={handleCopy}
+            className="p-1.5 hover:bg-dark-500 rounded-lg transition-colors"
+            title="Copy JSON"
+          >
+            {copied ? <Check className="w-4 h-4 text-green-400" /> : <Copy className="w-4 h-4 text-gray-400 hover:text-white" />}
+          </button>
+        </div>
       </div>
 
       {/* JSON Content */}
       <div className="flex-1 overflow-y-auto p-4">
         <pre className="text-xs text-gray-300 leading-relaxed whitespace-pre-wrap break-words">
-          {JSON.stringify(responseData, null, 2)}
+          {JSON.stringify(displayData, null, 2)}
         </pre>
       </div>
     </div>
@@ -672,7 +703,7 @@ export default function MainGeneration() {
 
     const requestStart = Date.now();
 
-    // Create initial API response data structure
+    // Create initial API response data structure - only show current request
     const apiResponseData: ApiResponseData = {
       id: selectedModel.id,
       author: getModelProvider(selectedModel),
@@ -692,7 +723,6 @@ export default function MainGeneration() {
       requestData: {
         model: selectedModel.id,
         messages: [
-          ...messages.map(msg => ({ role: msg.type === 'user' ? 'user' as const : 'assistant' as const, content: msg.content })),
           { role: 'user', content }
         ],
         stream: responseType === 'streaming',
@@ -705,8 +735,8 @@ export default function MainGeneration() {
     setCurrentApiResponse(apiResponseData);
 
     try {
+      // Send only the current message to OpenRouter (no conversation history)
       const apiMessages: OpenRouterMessage[] = [
-        ...messages.map(msg => ({ role: msg.type === 'user' ? 'user' as const : 'assistant' as const, content: msg.content })),
         { role: 'user', content }
       ];
 
@@ -910,49 +940,50 @@ export default function MainGeneration() {
   // ========== RENDER ==========
   return (
     <div className="w-full bg-dark-100 flex flex-col h-screen overflow-hidden">
-      {/* Header */}
-      <div className="px-6 py-6 bg-dark-100">
-        {/* Controls Row */}
-        <div className="flex flex-col lg:flex-row gap-4 items-start lg:items-center justify-between">
-          {/* Model Selection */}
-          <div className="flex-1 w-full lg:max-w-md">
-            <ModelSelector
-              selectedModel={selectedModel}
-              onModelChange={setSelectedModel}
-              isOpen={isModelSelectorOpen}
-              onToggle={() => setIsModelSelectorOpen(!isModelSelectorOpen)}
-              availableModels={availableModels}
-              isLoading={isLoadingModels}
-            />
-          </div>
-          
-          {/* Response Type Selector and New Chat Button */}
-          <div className="flex items-center gap-4">
-            <ResponseTypeSelector responseType={responseType} onResponseTypeChange={setResponseType} />
-            <button
-              onClick={handleClearChat}
-              className="flex items-center space-x-2 px-5 py-2.5 bg-dark-300 hover:bg-dark-400 text-gray-300 hover:text-white rounded-xl"
-            >
-              <RefreshCw className="w-4 h-4" />
-              <span className="text-sm font-medium">New Chat</span>
-            </button>
-          </div>
-        </div>
-        
-        {error && (
-          <div className="mt-6 p-4 bg-red-900/20 border border-red-500/30 rounded-xl">
-            <div className="flex items-center space-x-3">
-              <AlertCircle className="w-5 h-5 text-red-400" />
-              <span className="text-sm text-red-300 font-medium">{error}</span>
-            </div>
-          </div>
-        )}
-      </div>
 
       {/* Main Content - Two Column Layout */}
       <div className="flex-1 flex overflow-hidden">
         {/* Left Column - Chat Messages */}
-        <div className="flex-1 flex flex-col overflow-hidden border-r border-dark-400/30">
+        <div className="w-2/3 flex flex-col overflow-hidden border-r border-dark-400/30">
+          {/* Chat Header */}
+          <div className="px-6 py-4 bg-dark-100 border-b border-dark-400/30">
+            {/* Controls Row */}
+            <div className="flex flex-col lg:flex-row gap-4 items-start lg:items-center justify-between">
+              {/* Model Selection */}
+              <div className="flex-1 w-full lg:max-w-md">
+                <ModelSelector
+                  selectedModel={selectedModel}
+                  onModelChange={setSelectedModel}
+                  isOpen={isModelSelectorOpen}
+                  onToggle={() => setIsModelSelectorOpen(!isModelSelectorOpen)}
+                  availableModels={availableModels}
+                  isLoading={isLoadingModels}
+                />
+              </div>
+              
+              {/* Response Type Selector and New Chat Button */}
+              <div className="flex items-center gap-4">
+                <ResponseTypeSelector responseType={responseType} onResponseTypeChange={setResponseType} />
+                <button
+                  onClick={handleClearChat}
+                  className="flex items-center space-x-2 px-5 py-2.5 bg-dark-300 hover:bg-dark-400 text-gray-300 hover:text-white rounded-xl"
+                >
+                  <RefreshCw className="w-4 h-4" />
+                  <span className="text-sm font-medium">New Chat</span>
+                </button>
+              </div>
+            </div>
+            
+            {error && (
+              <div className="mt-4 p-4 bg-red-900/20 border border-red-500/30 rounded-xl">
+                <div className="flex items-center space-x-3">
+                  <AlertCircle className="w-5 h-5 text-red-400" />
+                  <span className="text-sm text-red-300 font-medium">{error}</span>
+                </div>
+              </div>
+            )}
+          </div>
+
           <div className="flex-1 overflow-y-auto scrollbar-thin scrollbar-thumb-gray-600 scrollbar-track-gray-800">
             <div className="p-4 space-y-4 min-h-full">
               {messages.length === 0 ? (
@@ -990,7 +1021,7 @@ export default function MainGeneration() {
         </div>
 
         {/* Right Column - JSON Response Viewer */}
-        <div className="w-1/2 bg-dark-200/50 border-l border-dark-400/30">
+        <div className="w-1/3 bg-dark-200/50 border-l border-dark-400/30">
           <JsonResponseViewer 
             responseData={currentApiResponse} 
             isStreaming={isLoading || isTyping}
