@@ -584,7 +584,18 @@ export default function MainGeneration() {
             
             if (chunk.usage) finalUsage = chunk.usage;
             
-            if (chunk.choices[0]?.delta?.content) {
+            // Add debugging for production issues
+            if (!chunk.choices) {
+              console.warn('Streaming chunk missing choices array:', chunk);
+              continue;
+            }
+            
+            if (chunk.choices.length === 0) {
+              console.warn('Streaming chunk has empty choices array:', chunk);
+              continue;
+            }
+            
+            if (chunk.choices && chunk.choices.length > 0 && chunk.choices[0]?.delta?.content) {
               if (!firstTokenReceived) {
                 firstTokenTime = Date.now();
                 firstTokenReceived = true;
@@ -637,7 +648,20 @@ export default function MainGeneration() {
         const response = await chatService.createCompletion(request);
         if (!response) return;
         
-        const content = response.choices[0]?.message?.content || 'No response received';
+        // Add debugging for production issues
+        if (!response.choices) {
+          console.warn('API response missing choices array:', response);
+          setError('Invalid response format from API');
+          return;
+        }
+        
+        if (response.choices.length === 0) {
+          console.warn('API response has empty choices array:', response);
+          setError('No response choices available from API');
+          return;
+        }
+        
+        const content = (response.choices && response.choices.length > 0) ? response.choices[0]?.message?.content || 'No response received' : 'No response received';
         const responseEnd = Date.now();
         const totalResponseTime = responseEnd - requestStart;
         const actualResponseTime = totalResponseTime;
