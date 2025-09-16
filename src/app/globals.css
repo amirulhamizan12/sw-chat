@@ -49,17 +49,35 @@ body {
   display: none;
 }
 
-.scrollbar-thin {
+/* Global scrollbar styling - black background with gray scroll pill */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: #000000;
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #6b7280;
+  border-radius: 4px;
+  transition: background-color 0.2s ease;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #9ca3af;
+}
+
+::-webkit-scrollbar-corner {
+  background: #000000;
+}
+
+/* Firefox scrollbar styling */
+* {
   scrollbar-width: thin;
-}
-
-.scrollbar-thumb-gray-600::-webkit-scrollbar-thumb {
-  background-color: #4b5563;
-  border-radius: 0.5rem;
-}
-
-.scrollbar-track-gray-800::-webkit-scrollbar-track {
-  background-color: #1f2937;
+  scrollbar-color: #6b7280 #000000;
 }
 
 /* Line clamp utility */

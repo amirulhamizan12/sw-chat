@@ -1,13 +1,7 @@
 "use client";
 import { useState, useRef, useEffect, KeyboardEvent } from 'react';
-import { 
-  Send, Loader2, ChevronDown, Zap, MessageSquare,
-  Copy, Check, RefreshCw, AlertCircle, Sparkles, Square
-} from 'lucide-react';
-import { 
-  openRouterService, OpenRouterModel, OpenRouterMessage,
-  formatModelName, formatProvider, calculateCost
-} from '@/services/openrouterService';
+import { Send, Loader2, ChevronDown, Zap, MessageSquare, Copy, Check, RefreshCw, AlertCircle, Sparkles, Square } from 'lucide-react';
+import { openRouterService, OpenRouterModel, OpenRouterMessage, formatModelName, formatProvider, calculateCost } from '@/services/openrouterService';
 
 // ========== TYPES & INTERFACES ==========
 interface Message {
@@ -27,8 +21,29 @@ interface Message {
     timeToFirstToken?: number;
     totalResponseTime?: number;
     actualResponseTime?: number;
-    tokensPerSecond?: number;
   };
+  rawResponse?: any; // Store raw API response data
+}
+
+interface ApiResponseData {
+  id: string;
+  author: string;
+  slug: string;
+  name: string;
+  description: string;
+  isActive: boolean;
+  capabilities: string[];
+  limits: {
+    maxTokens: number;
+    outputTokenLimit: number;
+    contextWindow: number;
+  };
+  endpoints: {
+    chat: string;
+  };
+  requestData?: any;
+  responseData?: any;
+  timestamp: Date;
 }
 
 // ========== UTILITY FUNCTIONS ==========
@@ -36,6 +51,7 @@ const getModelDisplayName = (model: OpenRouterModel) => formatModelName(model.id
 const getModelProvider = (model: OpenRouterModel) => formatProvider(model.id);
 const getModelCost = (model: OpenRouterModel) => 
   `${model.pricing.prompt}/${model.pricing.completion} per 1K tokens`;
+
 
 // ========== UI COMPONENTS ==========
 const ModelSelector = ({ selectedModel, onModelChange, isOpen, onToggle, availableModels, isLoading }: {
@@ -308,12 +324,6 @@ const RealtimeTimer = ({ startTime, firstTokenTime, isStreaming }: {
         </div>
         <div className="space-y-1">
           <div className="flex justify-between">
-            <span className="text-gray-400">Speed:</span>
-            <span className="text-blue-400 font-medium">
-              Calculating...
-            </span>
-          </div>
-          <div className="flex justify-between">
             <span className="text-gray-400">Actual Response:</span>
             <span className="text-cyan-400 font-medium font-mono">
               {actualResponseTime ? formatTime(actualResponseTime) : 'Waiting...'}
@@ -348,9 +358,6 @@ const ResponseCalculator = ({ timing, usage, isStreaming }: {
     return `${(ms / 1000).toFixed(2)}s`;
   };
 
-  const formatTokensPerSecond = (tps: number) => {
-    return `${tps.toFixed(1)} t/s`;
-  };
 
   return (
     <div className="mt-3 p-3 bg-dark-400/30 border border-dark-500/40 rounded-lg">
@@ -374,12 +381,6 @@ const ResponseCalculator = ({ timing, usage, isStreaming }: {
           </div>
         </div>
         <div className="space-y-1">
-          <div className="flex justify-between">
-            <span className="text-gray-400">Speed:</span>
-            <span className="text-blue-400 font-medium">
-              {timing.tokensPerSecond ? formatTokensPerSecond(timing.tokensPerSecond) : 'N/A'}
-            </span>
-          </div>
           <div className="flex justify-between">
             <span className="text-gray-400">Actual Response:</span>
             <span className="text-cyan-400 font-medium">
@@ -414,6 +415,70 @@ const EmptyState = () => (
   </div>
 );
 
+// ========== JSON RESPONSE VIEWER ==========
+const JsonResponseViewer = ({ responseData, isStreaming }: { 
+  responseData: ApiResponseData | null; 
+  isStreaming: boolean;
+}) => {
+  const [copied, setCopied] = useState(false);
+
+  const handleCopy = () => {
+    if (responseData) {
+      navigator.clipboard.writeText(JSON.stringify(responseData, null, 2));
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    }
+  };
+
+  if (!responseData) {
+    return (
+      <div className="flex justify-center items-center h-full min-h-[400px]">
+        <div className="text-center">
+          <div className="w-16 h-16 mx-auto mb-6 bg-dark-400/20 rounded-full flex items-center justify-center">
+            <MessageSquare className="w-8 h-8 text-gray-400" />
+          </div>
+          <h3 className="text-lg font-semibold text-gray-300 mb-2">API Response</h3>
+          <p className="text-gray-400 text-sm max-w-md mx-auto leading-relaxed">
+            Send a message to see the live API response data here.
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="h-full flex flex-col">
+      {/* Header */}
+      <div className="flex items-center justify-between p-4 border-b border-dark-400/30">
+        <div className="flex items-center space-x-2">
+          <Zap className="w-4 h-4 text-orange-400" />
+          <h3 className="text-sm font-semibold text-gray-300">API Response</h3>
+          {isStreaming && (
+            <div className="flex items-center space-x-1">
+              <div className="w-2 h-2 bg-orange-400 rounded-full animate-pulse"></div>
+              <span className="text-xs text-orange-400">Live</span>
+            </div>
+          )}
+        </div>
+        <button
+          onClick={handleCopy}
+          className="p-1.5 hover:bg-dark-500 rounded-lg transition-colors"
+          title="Copy JSON"
+        >
+          {copied ? <Check className="w-4 h-4 text-green-400" /> : <Copy className="w-4 h-4 text-gray-400 hover:text-white" />}
+        </button>
+      </div>
+
+      {/* JSON Content */}
+      <div className="flex-1 overflow-y-auto p-4">
+        <pre className="text-xs text-gray-300 leading-relaxed whitespace-pre-wrap break-words">
+          {JSON.stringify(responseData, null, 2)}
+        </pre>
+      </div>
+    </div>
+  );
+};
+
 // ========== INPUT COMPONENT ==========
 const MessageInput = ({ onSendMessage, onStopGeneration, isLoading, isGenerating, placeholder = "Type your message..." }: {
   onSendMessage: (message: string) => void;
@@ -441,7 +506,7 @@ const MessageInput = ({ onSendMessage, onStopGeneration, isLoading, isGenerating
     const textarea = textareaRef.current;
     if (textarea) {
       textarea.style.height = 'auto';
-      textarea.style.height = Math.min(textarea.scrollHeight, 120) + 'px';
+      textarea.style.height = Math.min(textarea.scrollHeight, 100) + 'px';
     }
   };
 
@@ -450,7 +515,7 @@ const MessageInput = ({ onSendMessage, onStopGeneration, isLoading, isGenerating
 
   return (
     <div className="relative group">
-      <div className={`relative flex items-end gap-3 p-4 rounded-2xl bg-dark-200/80 border border-dark-400/30 ${isLoading ? 'opacity-70' : ''} min-h-[64px]`}>
+      <div className={`relative flex items-end gap-3 p-3 rounded-xl bg-dark-200/80 border border-dark-400/30 ${isLoading ? 'opacity-70' : ''} min-h-[48px]`}>
         <div className="flex-1 relative">
           <textarea
             ref={textareaRef}
@@ -459,7 +524,7 @@ const MessageInput = ({ onSendMessage, onStopGeneration, isLoading, isGenerating
             onKeyPress={handleKeyPress}
             placeholder={placeholder}
             disabled={isLoading}
-            className="w-full bg-transparent border-0 focus:outline-none placeholder:text-gray-400 text-white resize-none min-h-[24px] max-h-[120px] text-sm leading-relaxed pr-2 scrollbar-hide"
+            className="w-full bg-transparent border-0 focus:outline-none placeholder:text-gray-400 text-white resize-none min-h-[24px] max-h-[100px] text-sm leading-relaxed pr-2 scrollbar-hide"
             rows={1}
             style={{ height: '24px', scrollbarWidth: 'none', msOverflowStyle: 'none' }}
           />
@@ -467,23 +532,44 @@ const MessageInput = ({ onSendMessage, onStopGeneration, isLoading, isGenerating
         {isGenerating ? (
           <button
             onClick={onStopGeneration}
-            className="w-10 h-10 rounded-full flex items-center justify-center bg-red-500 hover:bg-red-600 text-white"
+            className="w-9 h-9 rounded-full flex items-center justify-center bg-red-500 hover:bg-red-600 text-white transition-all duration-200 shadow-lg hover:shadow-red-500/25"
             title="Stop generation"
           >
-            <Square className="w-5 h-5" />
+            <div className="w-4 h-4 flex items-center justify-center">
+              <Square className="w-4 h-4" />
+            </div>
           </button>
         ) : (
           <button
             onClick={handleSubmit}
             disabled={!hasContent || isLoading}
-            className={`w-10 h-10 rounded-full flex items-center justify-center ${
+            className={`w-9 h-9 rounded-full flex items-center justify-center transition-all duration-200 ${
               hasContent && !isLoading
-                ? 'bg-orange-500'
+                ? 'bg-orange-500 hover:bg-orange-600 shadow-lg hover:shadow-orange-500/25'
                 : 'bg-dark-400 text-gray-600 cursor-not-allowed'
             }`}
             title={isLoading ? 'Sending...' : 'Send message'}
           >
-            {isLoading ? <Loader2 className="w-5 h-5 text-white" /> : <Send className="w-5 h-5 text-white" />}
+            {isLoading ? (
+              <Loader2 className="w-4 h-4 text-white animate-spin" />
+            ) : (
+              <div className="w-5 h-5 flex items-center justify-center">
+                <svg 
+                  className="w-5 h-5 text-white" 
+                  fill="none" 
+                  stroke="currentColor" 
+                  viewBox="0 0 24 24" 
+                  xmlns="http://www.w3.org/2000/svg"
+                >
+                  <path 
+                    strokeLinecap="round" 
+                    strokeLinejoin="round" 
+                    strokeWidth={2} 
+                    d="M13 7l5 5m0 0l-5 5m5-5H6" 
+                  />
+                </svg>
+              </div>
+            )}
           </button>
         )}
       </div>
@@ -504,6 +590,7 @@ export default function MainGeneration() {
   const [isConnected, setIsConnected] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [abortController, setAbortController] = useState<AbortController | null>(null);
+  const [currentApiResponse, setCurrentApiResponse] = useState<ApiResponseData | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   const scrollToBottom = () => messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -585,6 +672,38 @@ export default function MainGeneration() {
 
     const requestStart = Date.now();
 
+    // Create initial API response data structure
+    const apiResponseData: ApiResponseData = {
+      id: selectedModel.id,
+      author: getModelProvider(selectedModel),
+      slug: selectedModel.id.split('/')[1] || selectedModel.id,
+      name: getModelDisplayName(selectedModel),
+      description: `AI model for ${responseType} responses`,
+      isActive: true,
+      capabilities: ['text-generation', 'reasoning', 'analysis', 'coding'],
+      limits: {
+        maxTokens: selectedModel.per_request_limits?.completion_tokens || 4000,
+        outputTokenLimit: selectedModel.per_request_limits?.completion_tokens || 4000,
+        contextWindow: selectedModel.context_length
+      },
+      endpoints: {
+        chat: `/api/v1/models/${selectedModel.id}/chat`
+      },
+      requestData: {
+        model: selectedModel.id,
+        messages: [
+          ...messages.map(msg => ({ role: msg.type === 'user' ? 'user' as const : 'assistant' as const, content: msg.content })),
+          { role: 'user', content }
+        ],
+        stream: responseType === 'streaming',
+        temperature: 0.7,
+        max_tokens: selectedModel.per_request_limits?.completion_tokens || 4000
+      },
+      timestamp: new Date()
+    };
+
+    setCurrentApiResponse(apiResponseData);
+
     try {
       const apiMessages: OpenRouterMessage[] = [
         ...messages.map(msg => ({ role: msg.type === 'user' ? 'user' as const : 'assistant' as const, content: msg.content })),
@@ -617,12 +736,18 @@ export default function MainGeneration() {
         let fullContent = '';
         let firstTokenReceived = false;
         let firstTokenTime: number | undefined;
+        let finalUsage: { prompt_tokens: number; completion_tokens: number; total_tokens: number; } | undefined;
 
         try {
           for await (const chunk of openRouterService.createStreamingCompletion(request, controller)) {
             // Check if request was cancelled during streaming
             if (controller.signal.aborted) {
               break;
+            }
+            
+            // Check if this is the final chunk with usage data
+            if (chunk.usage) {
+              finalUsage = chunk.usage;
             }
             
             if (chunk.choices[0]?.delta?.content) {
@@ -652,24 +777,49 @@ export default function MainGeneration() {
         const timeToFirstToken = firstTokenTime ? firstTokenTime - requestStart : undefined;
         const totalResponseTime = responseEnd - requestStart;
         const actualResponseTime = firstTokenTime ? responseEnd - firstTokenTime : undefined;
-        // For streaming, we'll estimate tokens based on content length (rough approximation)
-        const estimatedTokens = Math.ceil(fullContent.length / 4); // Rough estimate: 4 chars per token
-        const tokensPerSecond = estimatedTokens > 0 ? 
-          (estimatedTokens / (totalResponseTime / 1000)) : undefined;
+        
+        // Use actual usage data if available
+        const completionTokens = finalUsage?.completion_tokens || 0;
 
-        setMessages(prev => prev.map(msg => 
-          msg.id === assistantMessage.id ? { 
-            ...msg, 
-            isStreaming: false,
+        // Update API response data with final response
+        const finalApiResponse: ApiResponseData = {
+          ...apiResponseData,
+          responseData: {
+            content: fullContent,
+            usage: finalUsage,
             timing: {
               requestStart,
               firstTokenTime,
               responseEnd,
               timeToFirstToken,
               totalResponseTime,
-              actualResponseTime,
-              tokensPerSecond
-            }
+              actualResponseTime
+            },
+            cost: finalUsage ? calculateCost(finalUsage.prompt_tokens, finalUsage.completion_tokens, selectedModel.pricing) : undefined
+          },
+          timestamp: new Date()
+        };
+        setCurrentApiResponse(finalApiResponse);
+
+        setMessages(prev => prev.map(msg => 
+          msg.id === assistantMessage.id ? { 
+            ...msg, 
+            isStreaming: false,
+            usage: finalUsage || {
+              prompt_tokens: 0, // We don't have prompt tokens in streaming
+              completion_tokens: completionTokens,
+              total_tokens: completionTokens
+            },
+            cost: finalUsage ? calculateCost(finalUsage.prompt_tokens, finalUsage.completion_tokens, selectedModel.pricing) : undefined,
+            timing: {
+              requestStart,
+              firstTokenTime,
+              responseEnd,
+              timeToFirstToken,
+              totalResponseTime,
+              actualResponseTime
+            },
+            rawResponse: finalApiResponse
           } : msg
         ));
       } else {
@@ -685,8 +835,24 @@ export default function MainGeneration() {
         const responseEnd = Date.now();
         const totalResponseTime = responseEnd - requestStart;
         const actualResponseTime = totalResponseTime; // For text responses, actual response time equals total time
-        const tokensPerSecond = response.usage?.completion_tokens ? 
-          (response.usage.completion_tokens / (totalResponseTime / 1000)) : undefined;
+        
+        // Update API response data with final response
+        const finalApiResponse: ApiResponseData = {
+          ...apiResponseData,
+          responseData: {
+            content,
+            usage: response.usage,
+            timing: {
+              requestStart,
+              responseEnd,
+              totalResponseTime,
+              actualResponseTime
+            },
+            cost: response.usage ? calculateCost(response.usage.prompt_tokens, response.usage.completion_tokens, selectedModel.pricing) : undefined
+          },
+          timestamp: new Date()
+        };
+        setCurrentApiResponse(finalApiResponse);
         
         const assistantMessage: Message = {
           id: `assistant-${Date.now()}`,
@@ -701,9 +867,9 @@ export default function MainGeneration() {
             requestStart,
             responseEnd,
             totalResponseTime,
-            actualResponseTime,
-            tokensPerSecond
-          }
+            actualResponseTime
+          },
+          rawResponse: finalApiResponse
         };
         setMessages(prev => [...prev, assistantMessage]);
       }
@@ -736,16 +902,18 @@ export default function MainGeneration() {
 
   // ========== UTILITY FUNCTIONS ==========
   const handleCopy = (content: string) => navigator.clipboard.writeText(content);
-  const handleClearChat = () => setMessages([]);
+  const handleClearChat = () => {
+    setMessages([]);
+    setCurrentApiResponse(null);
+  };
 
   // ========== RENDER ==========
   return (
     <div className="w-full bg-dark-100 flex flex-col h-screen overflow-hidden">
       {/* Header */}
       <div className="px-6 py-6 bg-dark-100">
-        {/* New Chat Button */}
         {/* Controls Row */}
-        <div className="flex flex-col lg:flex-row gap-4 items-start lg:items-center justify-between mb-6">
+        <div className="flex flex-col lg:flex-row gap-4 items-start lg:items-center justify-between">
           {/* Model Selection */}
           <div className="flex-1 w-full lg:max-w-md">
             <ModelSelector
@@ -781,41 +949,52 @@ export default function MainGeneration() {
         )}
       </div>
 
-      {/* Main Content */}
-      <div className="flex-1 flex flex-col overflow-hidden">
-        <div className="flex-1 overflow-y-auto scrollbar-thin scrollbar-thumb-gray-600 scrollbar-track-gray-800">
-          <div className="p-4 space-y-4 min-h-full">
-            {messages.length === 0 ? (
-              <EmptyState />
-            ) : (
-              <>
-                {messages.map((message) => (
-                  <div key={message.id}>
-                    {message.type === 'user' ? (
-                      <UserMessage message={message} />
-                    ) : (
-                      <AssistantMessage message={message} onCopy={handleCopy} />
-                    )}
-                  </div>
-                ))}
-                {isTyping && selectedModel && (
-                  <TypingIndicator model={getModelDisplayName(selectedModel)} />
-                )}
-                <div ref={messagesEndRef} />
-              </>
-            )}
+      {/* Main Content - Two Column Layout */}
+      <div className="flex-1 flex overflow-hidden">
+        {/* Left Column - Chat Messages */}
+        <div className="flex-1 flex flex-col overflow-hidden border-r border-dark-400/30">
+          <div className="flex-1 overflow-y-auto scrollbar-thin scrollbar-thumb-gray-600 scrollbar-track-gray-800">
+            <div className="p-4 space-y-4 min-h-full">
+              {messages.length === 0 ? (
+                <EmptyState />
+              ) : (
+                <>
+                  {messages.map((message) => (
+                    <div key={message.id}>
+                      {message.type === 'user' ? (
+                        <UserMessage message={message} />
+                      ) : (
+                        <AssistantMessage message={message} onCopy={handleCopy} />
+                      )}
+                    </div>
+                  ))}
+                  {isTyping && selectedModel && (
+                    <TypingIndicator model={getModelDisplayName(selectedModel)} />
+                  )}
+                  <div ref={messagesEndRef} />
+                </>
+              )}
+            </div>
+          </div>
+          <div className="px-4 pt-4 pb-4">
+            <div className="max-w-4xl mx-auto">
+              <MessageInput
+                onSendMessage={handleSendMessage}
+                onStopGeneration={handleStopGeneration}
+                isLoading={isLoading}
+                isGenerating={isLoading || isTyping}
+                placeholder={selectedModel ? `Message ${getModelDisplayName(selectedModel)}...` : "Select a model to start..."}
+              />
+            </div>
           </div>
         </div>
-        <div className="px-4 pb-4">
-          <div className="max-w-4xl mx-auto">
-            <MessageInput
-              onSendMessage={handleSendMessage}
-              onStopGeneration={handleStopGeneration}
-              isLoading={isLoading}
-              isGenerating={isLoading || isTyping}
-              placeholder={selectedModel ? `Message ${getModelDisplayName(selectedModel)}...` : "Select a model to start..."}
-            />
-          </div>
+
+        {/* Right Column - JSON Response Viewer */}
+        <div className="w-1/2 bg-dark-200/50 border-l border-dark-400/30">
+          <JsonResponseViewer 
+            responseData={currentApiResponse} 
+            isStreaming={isLoading || isTyping}
+          />
         </div>
       </div>
 

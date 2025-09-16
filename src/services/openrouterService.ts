@@ -42,6 +42,7 @@ export interface OpenRouterStreamChunk {
   created: number;
   model: string;
   choices: Array<{ index: number; delta: { role?: string; content?: string; }; finish_reason?: string; }>;
+  usage?: { prompt_tokens: number; completion_tokens: number; total_tokens: number; };
 }
 
 export interface OpenRouterError {
