@@ -3,7 +3,10 @@ import { useState, useRef, useEffect, KeyboardEvent } from 'react';
 import { Send, Loader2, ChevronDown, Zap, MessageSquare, Copy, Check, RefreshCw, AlertCircle, Sparkles, Square } from 'lucide-react';
 import { openRouterService, OpenRouterModel, OpenRouterMessage, formatModelName, formatProvider, calculateCost } from '@/services/openrouterService';
 
-// ========== TYPES & INTERFACES ==========
+// ===========================
+// TYPES & INTERFACES
+// ===========================
+
 interface Message {
   id: string;
   type: 'user' | 'assistant';
@@ -22,7 +25,7 @@ interface Message {
     totalResponseTime?: number;
     actualResponseTime?: number;
   };
-  rawResponse?: any; // Store raw API response data
+  rawResponse?: any;
 }
 
 interface ApiResponseData {
@@ -33,27 +36,26 @@ interface ApiResponseData {
   description: string;
   isActive: boolean;
   capabilities: string[];
-  limits: {
-    maxTokens: number;
-    outputTokenLimit: number;
-    contextWindow: number;
-  };
-  endpoints: {
-    chat: string;
-  };
+  limits: { maxTokens: number; outputTokenLimit: number; contextWindow: number; };
+  endpoints: { chat: string; };
   requestData?: any;
   responseData?: any;
   timestamp: Date;
 }
 
-// ========== UTILITY FUNCTIONS ==========
+// ===========================
+// UTILITY FUNCTIONS
+// ===========================
+
 const getModelDisplayName = (model: OpenRouterModel) => formatModelName(model.id);
 const getModelProvider = (model: OpenRouterModel) => formatProvider(model.id);
-const getModelCost = (model: OpenRouterModel) => 
-  `${model.pricing.prompt}/${model.pricing.completion} per 1K tokens`;
+const getModelCost = (model: OpenRouterModel) => `${model.pricing.prompt}/${model.pricing.completion} per 1K tokens`;
+const formatTime = (ms: number) => ms < 1000 ? `${ms.toFixed(0)}ms` : `${(ms / 1000).toFixed(2)}s`;
 
+// ===========================
+// MODEL SELECTOR COMPONENT
+// ===========================
 
-// ========== UI COMPONENTS ==========
 const ModelSelector = ({ selectedModel, onModelChange, isOpen, onToggle, availableModels, isLoading }: {
   selectedModel: OpenRouterModel | null;
   onModelChange: (model: OpenRouterModel) => void;
@@ -74,7 +76,6 @@ const ModelSelector = ({ selectedModel, onModelChange, isOpen, onToggle, availab
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, [isOpen, onToggle]);
 
-
   return (
     <div className="relative" ref={dropdownRef}>
       <button
@@ -82,9 +83,7 @@ const ModelSelector = ({ selectedModel, onModelChange, isOpen, onToggle, availab
         className="flex items-center justify-between w-full px-3 py-2 bg-dark-200 border border-dark-400/40 rounded-lg hover:bg-dark-300 hover:border-orange-500/40 group"
       >
         <div className="flex items-center space-x-2">
-          {isLoading && (
-            <Loader2 className="w-4 h-4 text-orange-400" />
-          )}
+          {isLoading && <Loader2 className="w-4 h-4 text-orange-400" />}
           <div className="text-left">
             <div className="text-white font-semibold text-sm">
               {selectedModel ? getModelDisplayName(selectedModel) : 'Select Model'}
@@ -95,18 +94,13 @@ const ModelSelector = ({ selectedModel, onModelChange, isOpen, onToggle, availab
           </div>
         </div>
         <div className="flex items-center space-x-2">
-          {selectedModel && (
-            <div className="px-2 py-1 bg-orange-500 text-white text-xs rounded font-medium">
-              Active
-            </div>
-          )}
+          {selectedModel && <div className="px-2 py-1 bg-orange-500 text-white text-xs rounded font-medium">Active</div>}
           <ChevronDown className={`w-4 h-4 text-gray-300 ${isOpen ? 'rotate-180' : ''}`} />
         </div>
       </button>
 
       {isOpen && (
         <div className="absolute top-full left-0 right-0 mt-4 bg-dark-200/98 border border-dark-400/60 rounded-2xl z-50 max-h-96 overflow-hidden">
-          {/* Models List */}
           <div className="max-h-96 overflow-y-auto scrollbar-thin scrollbar-thumb-gray-600 scrollbar-track-transparent">
             {isLoading ? (
               <div className="flex items-center justify-center py-12">
@@ -120,7 +114,7 @@ const ModelSelector = ({ selectedModel, onModelChange, isOpen, onToggle, availab
               </div>
             ) : (
               <div className="p-3">
-                {availableModels.map((model, index) => (
+                {availableModels.map((model) => (
                   <button
                     key={model.id}
                     onClick={() => { onModelChange(model); onToggle(); }}
@@ -138,9 +132,7 @@ const ModelSelector = ({ selectedModel, onModelChange, isOpen, onToggle, availab
                             {getModelProvider(model)}
                           </span>
                           {selectedModel?.id === model.id && (
-                            <span className="px-1.5 py-0.5 bg-orange-500 text-white text-xs rounded font-bold">
-                              Selected
-                            </span>
+                            <span className="px-1.5 py-0.5 bg-orange-500 text-white text-xs rounded font-bold">Selected</span>
                           )}
                         </div>
                         <div className="flex items-center space-x-1 text-xs text-gray-400">
@@ -161,6 +153,10 @@ const ModelSelector = ({ selectedModel, onModelChange, isOpen, onToggle, availab
   );
 };
 
+// ===========================
+// RESPONSE TYPE SELECTOR
+// ===========================
+
 const ResponseTypeSelector = ({ responseType, onResponseTypeChange }: {
   responseType: 'streaming' | 'text';
   onResponseTypeChange: (type: 'streaming' | 'text') => void;
@@ -180,9 +176,7 @@ const ResponseTypeSelector = ({ responseType, onResponseTypeChange }: {
             key={type.id}
             onClick={() => onResponseTypeChange(type.id)}
             className={`flex items-center space-x-2 px-5 py-2.5 rounded-xl font-medium ${
-              isActive
-                ? 'bg-orange-500 text-white'
-                : 'bg-dark-300 text-gray-300 hover:bg-dark-400 hover:text-white'
+              isActive ? 'bg-orange-500 text-white' : 'bg-dark-300 text-gray-300 hover:bg-dark-400 hover:text-white'
             }`}
             title={type.description}
           >
@@ -195,7 +189,10 @@ const ResponseTypeSelector = ({ responseType, onResponseTypeChange }: {
   );
 };
 
-// ========== MESSAGE COMPONENTS ==========
+// ===========================
+// MESSAGE COMPONENTS
+// ===========================
+
 const UserMessage = ({ message }: { message: Message }) => (
   <div className="flex justify-end mb-4">
     <div className="max-w-[85%] lg:max-w-[75%]">
@@ -209,9 +206,121 @@ const UserMessage = ({ message }: { message: Message }) => (
   </div>
 );
 
+const RealtimeTimer = ({ startTime, firstTokenTime, isStreaming }: { 
+  startTime: number; 
+  firstTokenTime?: number; 
+  isStreaming?: boolean;
+}) => {
+  const [currentTime, setCurrentTime] = useState(Date.now());
+
+  useEffect(() => {
+    if (!isStreaming) return;
+    const interval = setInterval(() => setCurrentTime(Date.now()), 100);
+    return () => clearInterval(interval);
+  }, [isStreaming]);
+
+  const elapsed = currentTime - startTime;
+  const timeToFirstToken = firstTokenTime ? firstTokenTime - startTime : undefined;
+  const actualResponseTime = firstTokenTime ? currentTime - firstTokenTime : undefined;
+
+  return (
+    <div className="mt-3 p-3 bg-dark-400/30 border border-dark-500/40 rounded-lg">
+      <div className="flex items-center justify-between mb-2">
+        <span className="text-xs font-medium text-gray-300">Response Metrics</span>
+        <div className="flex items-center space-x-2">
+          <Zap className="w-3 h-3 text-orange-400" />
+          {isStreaming && (
+            <div className="flex items-center space-x-1">
+              <div className="w-1.5 h-1.5 bg-orange-400 rounded-full animate-pulse"></div>
+              <span className="text-xs text-orange-400 font-mono">Live</span>
+            </div>
+          )}
+        </div>
+      </div>
+      <div className="grid grid-cols-2 gap-3 text-xs">
+        <div className="space-y-1">
+          <div className="flex justify-between">
+            <span className="text-gray-400">Time to First Token:</span>
+            <span className="text-orange-400 font-medium">
+              {timeToFirstToken ? formatTime(timeToFirstToken) : 'Waiting...'}
+            </span>
+          </div>
+          <div className="flex justify-between">
+            <span className="text-gray-400">Total Response Time:</span>
+            <span className="text-green-400 font-medium font-mono">{formatTime(elapsed)}</span>
+          </div>
+        </div>
+        <div className="space-y-1">
+          <div className="flex justify-between">
+            <span className="text-gray-400">Actual Response:</span>
+            <span className="text-cyan-400 font-medium font-mono">
+              {actualResponseTime ? formatTime(actualResponseTime) : 'Waiting...'}
+            </span>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+const ResponseCalculator = ({ timing, usage, isStreaming }: { 
+  timing?: Message['timing']; 
+  usage?: Message['usage'];
+  isStreaming?: boolean;
+}) => {
+  if (!timing) return null;
+
+  if (isStreaming && timing.requestStart) {
+    return <RealtimeTimer startTime={timing.requestStart} firstTokenTime={timing.firstTokenTime} isStreaming={isStreaming} />;
+  }
+
+  return (
+    <div className="mt-3 p-3 bg-dark-400/30 border border-dark-500/40 rounded-lg">
+      <div className="flex items-center justify-between mb-2">
+        <span className="text-xs font-medium text-gray-300">Response Metrics</span>
+        <Zap className="w-3 h-3 text-orange-400" />
+      </div>
+      <div className="grid grid-cols-2 gap-3 text-xs">
+        <div className="space-y-1">
+          <div className="flex justify-between">
+            <span className="text-gray-400">Time to First Token:</span>
+            <span className="text-orange-400 font-medium">
+              {timing.timeToFirstToken ? formatTime(timing.timeToFirstToken) : 'N/A'}
+            </span>
+          </div>
+          <div className="flex justify-between">
+            <span className="text-gray-400">Total Response Time:</span>
+            <span className="text-green-400 font-medium">
+              {timing.totalResponseTime ? formatTime(timing.totalResponseTime) : 'N/A'}
+            </span>
+          </div>
+        </div>
+        <div className="space-y-1">
+          <div className="flex justify-between">
+            <span className="text-gray-400">Actual Response:</span>
+            <span className="text-cyan-400 font-medium">
+              {timing.actualResponseTime ? formatTime(timing.actualResponseTime) : 'N/A'}
+            </span>
+          </div>
+          {usage && (
+            <div className="flex justify-between">
+              <span className="text-gray-400">Tokens:</span>
+              <span className="text-purple-400 font-medium">{usage.completion_tokens.toLocaleString()}</span>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+};
+
 const AssistantMessage = ({ message, onCopy }: { message: Message; onCopy: (content: string) => void; }) => {
   const [copied, setCopied] = useState(false);
-  const handleCopy = () => { onCopy(message.content); setCopied(true); setTimeout(() => setCopied(false), 2000); };
+  const handleCopy = () => { 
+    onCopy(message.content); 
+    setCopied(true); 
+    setTimeout(() => setCopied(false), 2000); 
+  };
 
   return (
     <div className="flex justify-start mb-4">
@@ -229,11 +338,7 @@ const AssistantMessage = ({ message, onCopy }: { message: Message; onCopy: (cont
                 </div>
               )}
             </div>
-            <button
-              onClick={handleCopy}
-              className="p-1 hover:bg-dark-500 rounded"
-              title="Copy response"
-            >
+            <button onClick={handleCopy} className="p-1 hover:bg-dark-500 rounded" title="Copy response">
               {copied ? <Check className="w-4 h-4 text-green-400" /> : <Copy className="w-4 h-4 text-gray-400 hover:text-white" />}
             </button>
           </div>
@@ -267,140 +372,6 @@ const TypingIndicator = ({ model }: { model: string }) => (
   </div>
 );
 
-const RealtimeTimer = ({ startTime, firstTokenTime, isStreaming }: { 
-  startTime: number; 
-  firstTokenTime?: number; 
-  isStreaming?: boolean;
-}) => {
-  const [currentTime, setCurrentTime] = useState(Date.now());
-
-  useEffect(() => {
-    if (!isStreaming) return;
-    
-    const interval = setInterval(() => {
-      setCurrentTime(Date.now());
-    }, 100); // Update every 100ms for smooth real-time updates
-
-    return () => clearInterval(interval);
-  }, [isStreaming]);
-
-  const formatTime = (ms: number) => {
-    if (ms < 1000) return `${ms.toFixed(0)}ms`;
-    return `${(ms / 1000).toFixed(2)}s`;
-  };
-
-  const elapsed = currentTime - startTime;
-  const timeToFirstToken = firstTokenTime ? firstTokenTime - startTime : undefined;
-  const actualResponseTime = firstTokenTime ? currentTime - firstTokenTime : undefined;
-
-  return (
-    <div className="mt-3 p-3 bg-dark-400/30 border border-dark-500/40 rounded-lg">
-      <div className="flex items-center justify-between mb-2">
-        <span className="text-xs font-medium text-gray-300">Response Metrics</span>
-        <div className="flex items-center space-x-2">
-          <Zap className="w-3 h-3 text-orange-400" />
-          {isStreaming && (
-            <div className="flex items-center space-x-1">
-              <div className="w-1.5 h-1.5 bg-orange-400 rounded-full animate-pulse"></div>
-              <span className="text-xs text-orange-400 font-mono">Live</span>
-            </div>
-          )}
-        </div>
-      </div>
-      <div className="grid grid-cols-2 gap-3 text-xs">
-        <div className="space-y-1">
-          <div className="flex justify-between">
-            <span className="text-gray-400">Time to First Token:</span>
-            <span className="text-orange-400 font-medium">
-              {timeToFirstToken ? formatTime(timeToFirstToken) : 'Waiting...'}
-            </span>
-          </div>
-          <div className="flex justify-between">
-            <span className="text-gray-400">Total Response Time:</span>
-            <span className="text-green-400 font-medium font-mono">
-              {formatTime(elapsed)}
-            </span>
-          </div>
-        </div>
-        <div className="space-y-1">
-          <div className="flex justify-between">
-            <span className="text-gray-400">Actual Response:</span>
-            <span className="text-cyan-400 font-medium font-mono">
-              {actualResponseTime ? formatTime(actualResponseTime) : 'Waiting...'}
-            </span>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-};
-
-const ResponseCalculator = ({ timing, usage, isStreaming }: { 
-  timing?: Message['timing']; 
-  usage?: Message['usage'];
-  isStreaming?: boolean;
-}) => {
-  if (!timing) return null;
-
-  // Show real-time timer if currently streaming
-  if (isStreaming && timing.requestStart) {
-    return (
-      <RealtimeTimer 
-        startTime={timing.requestStart} 
-        firstTokenTime={timing.firstTokenTime}
-        isStreaming={isStreaming}
-      />
-    );
-  }
-
-  const formatTime = (ms: number) => {
-    if (ms < 1000) return `${ms.toFixed(0)}ms`;
-    return `${(ms / 1000).toFixed(2)}s`;
-  };
-
-
-  return (
-    <div className="mt-3 p-3 bg-dark-400/30 border border-dark-500/40 rounded-lg">
-      <div className="flex items-center justify-between mb-2">
-        <span className="text-xs font-medium text-gray-300">Response Metrics</span>
-        <Zap className="w-3 h-3 text-orange-400" />
-      </div>
-      <div className="grid grid-cols-2 gap-3 text-xs">
-        <div className="space-y-1">
-          <div className="flex justify-between">
-            <span className="text-gray-400">Time to First Token:</span>
-            <span className="text-orange-400 font-medium">
-              {timing.timeToFirstToken ? formatTime(timing.timeToFirstToken) : 'N/A'}
-            </span>
-          </div>
-          <div className="flex justify-between">
-            <span className="text-gray-400">Total Response Time:</span>
-            <span className="text-green-400 font-medium">
-              {timing.totalResponseTime ? formatTime(timing.totalResponseTime) : 'N/A'}
-            </span>
-          </div>
-        </div>
-        <div className="space-y-1">
-          <div className="flex justify-between">
-            <span className="text-gray-400">Actual Response:</span>
-            <span className="text-cyan-400 font-medium">
-              {timing.actualResponseTime ? formatTime(timing.actualResponseTime) : 'N/A'}
-            </span>
-          </div>
-          {usage && (
-            <div className="flex justify-between">
-              <span className="text-gray-400">Tokens:</span>
-              <span className="text-purple-400 font-medium">
-                {usage.completion_tokens.toLocaleString()}
-              </span>
-            </div>
-          )}
-        </div>
-      </div>
-    </div>
-  );
-};
-
 const EmptyState = () => (
   <div className="flex justify-center items-center h-full min-h-[400px]">
     <div className="text-center">
@@ -415,7 +386,10 @@ const EmptyState = () => (
   </div>
 );
 
-// ========== JSON RESPONSE VIEWER ==========
+// ===========================
+// JSON RESPONSE VIEWER
+// ===========================
+
 const JsonResponseViewer = ({ responseData, isStreaming }: { 
   responseData: ApiResponseData | null; 
   isStreaming: boolean;
@@ -432,23 +406,17 @@ const JsonResponseViewer = ({ responseData, isStreaming }: {
     }
   };
 
-  const getSimplifiedResponseData = (data: ApiResponseData) => {
-    return {
-      model: {
-        id: data.id,
-        name: data.name,
-        author: data.author
-      },
-      request: {
-        message: data.requestData.messages[0]?.content || 'No message',
-        stream: data.requestData.stream,
-        temperature: data.requestData.temperature,
-        max_tokens: data.requestData.max_tokens
-      },
-      response: data.responseData || null,
-      timestamp: data.timestamp
-    };
-  };
+  const getSimplifiedResponseData = (data: ApiResponseData) => ({
+    model: { id: data.id, name: data.name, author: data.author },
+    request: {
+      message: data.requestData.messages[0]?.content || 'No message',
+      stream: data.requestData.stream,
+      temperature: data.requestData.temperature,
+      max_tokens: data.requestData.max_tokens
+    },
+    response: data.responseData || null,
+    timestamp: data.timestamp
+  });
 
   if (!responseData) {
     return (
@@ -470,7 +438,6 @@ const JsonResponseViewer = ({ responseData, isStreaming }: {
 
   return (
     <div className="h-full flex flex-col">
-      {/* Header */}
       <div className="flex items-center justify-between p-4 border-b border-dark-400/30">
         <div className="flex items-center space-x-2">
           <Zap className="w-4 h-4 text-orange-400" />
@@ -490,17 +457,11 @@ const JsonResponseViewer = ({ responseData, isStreaming }: {
           >
             {showFullData ? "Simple" : "Full"}
           </button>
-          <button
-            onClick={handleCopy}
-            className="p-1.5 hover:bg-dark-500 rounded-lg transition-colors"
-            title="Copy JSON"
-          >
+          <button onClick={handleCopy} className="p-1.5 hover:bg-dark-500 rounded-lg transition-colors" title="Copy JSON">
             {copied ? <Check className="w-4 h-4 text-green-400" /> : <Copy className="w-4 h-4 text-gray-400 hover:text-white" />}
           </button>
         </div>
       </div>
-
-      {/* JSON Content */}
       <div className="flex-1 overflow-y-auto p-4">
         <pre className="text-xs text-gray-300 leading-relaxed whitespace-pre-wrap break-words">
           {JSON.stringify(displayData, null, 2)}
@@ -510,7 +471,10 @@ const JsonResponseViewer = ({ responseData, isStreaming }: {
   );
 };
 
-// ========== INPUT COMPONENT ==========
+// ===========================
+// MESSAGE INPUT COMPONENT
+// ===========================
+
 const MessageInput = ({ onSendMessage, onStopGeneration, isLoading, isGenerating, placeholder = "Type your message..." }: {
   onSendMessage: (message: string) => void;
   onStopGeneration: () => void;
@@ -566,9 +530,7 @@ const MessageInput = ({ onSendMessage, onStopGeneration, isLoading, isGenerating
             className="w-9 h-9 rounded-full flex items-center justify-center bg-red-500 hover:bg-red-600 text-white transition-all duration-200 shadow-lg hover:shadow-red-500/25"
             title="Stop generation"
           >
-            <div className="w-4 h-4 flex items-center justify-center">
-              <Square className="w-4 h-4" />
-            </div>
+            <Square className="w-4 h-4" />
           </button>
         ) : (
           <button
@@ -584,22 +546,9 @@ const MessageInput = ({ onSendMessage, onStopGeneration, isLoading, isGenerating
             {isLoading ? (
               <Loader2 className="w-4 h-4 text-white animate-spin" />
             ) : (
-              <div className="w-5 h-5 flex items-center justify-center">
-                <svg 
-                  className="w-5 h-5 text-white" 
-                  fill="none" 
-                  stroke="currentColor" 
-                  viewBox="0 0 24 24" 
-                  xmlns="http://www.w3.org/2000/svg"
-                >
-                  <path 
-                    strokeLinecap="round" 
-                    strokeLinejoin="round" 
-                    strokeWidth={2} 
-                    d="M13 7l5 5m0 0l-5 5m5-5H6" 
-                  />
-                </svg>
-              </div>
+              <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7l5 5m0 0l-5 5m5-5H6" />
+              </svg>
             )}
           </button>
         )}
@@ -608,7 +557,10 @@ const MessageInput = ({ onSendMessage, onStopGeneration, isLoading, isGenerating
   );
 };
 
-// ========== MAIN COMPONENT ==========
+// ===========================
+// MAIN COMPONENT
+// ===========================
+
 export default function MainGeneration() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [selectedModel, setSelectedModel] = useState<OpenRouterModel | null>(null);
@@ -627,7 +579,10 @@ export default function MainGeneration() {
   const scrollToBottom = () => messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   useEffect(() => scrollToBottom(), [messages, isTyping]);
 
-  // ========== INITIALIZATION ==========
+  // ===========================
+  // INITIALIZATION
+  // ===========================
+
   useEffect(() => {
     const initializeOpenRouter = async () => {
       try {
@@ -664,7 +619,10 @@ export default function MainGeneration() {
     initializeOpenRouter();
   }, [selectedModel]);
 
-  // ========== STOP GENERATION ==========
+  // ===========================
+  // HANDLERS
+  // ===========================
+
   const handleStopGeneration = () => {
     if (abortController) {
       abortController.abort();
@@ -672,7 +630,6 @@ export default function MainGeneration() {
       setIsLoading(false);
       setIsTyping(false);
       
-      // Update the last assistant message to show it was stopped
       setMessages(prev => prev.map(msg => 
         msg.type === 'assistant' && msg.isStreaming 
           ? { 
@@ -686,7 +643,6 @@ export default function MainGeneration() {
     }
   };
 
-  // ========== MESSAGE HANDLING ==========
   const handleSendMessage = async (content: string) => {
     if (!selectedModel) { setError('Please select a model first'); return; }
     if (!isConnected) { setError('Not connected to OpenRouter API. Please check your connection.'); return; }
@@ -697,13 +653,10 @@ export default function MainGeneration() {
     setIsTyping(true);
     setError(null);
 
-    // Create abort controller for this request
     const controller = new AbortController();
     setAbortController(controller);
-
     const requestStart = Date.now();
 
-    // Create initial API response data structure - only show current request
     const apiResponseData: ApiResponseData = {
       id: selectedModel.id,
       author: getModelProvider(selectedModel),
@@ -717,29 +670,20 @@ export default function MainGeneration() {
         outputTokenLimit: selectedModel.per_request_limits?.completion_tokens || 4000,
         contextWindow: selectedModel.context_length
       },
-      endpoints: {
-        chat: `/api/v1/models/${selectedModel.id}/chat`
-      },
+      endpoints: { chat: `/api/v1/models/${selectedModel.id}/chat` },
       requestData: {
         model: selectedModel.id,
-        messages: [
-          { role: 'user', content }
-        ],
+        messages: [{ role: 'user', content }],
         stream: responseType === 'streaming',
         temperature: 0.7,
         max_tokens: selectedModel.per_request_limits?.completion_tokens || 4000
       },
       timestamp: new Date()
     };
-
     setCurrentApiResponse(apiResponseData);
 
     try {
-      // Send only the current message to OpenRouter (no conversation history)
-      const apiMessages: OpenRouterMessage[] = [
-        { role: 'user', content }
-      ];
-
+      const apiMessages: OpenRouterMessage[] = [{ role: 'user', content }];
       const request = {
         model: selectedModel.id,
         messages: apiMessages,
@@ -770,21 +714,14 @@ export default function MainGeneration() {
 
         try {
           for await (const chunk of openRouterService.createStreamingCompletion(request, controller)) {
-            // Check if request was cancelled during streaming
-            if (controller.signal.aborted) {
-              break;
-            }
+            if (controller.signal.aborted) break;
             
-            // Check if this is the final chunk with usage data
-            if (chunk.usage) {
-              finalUsage = chunk.usage;
-            }
+            if (chunk.usage) finalUsage = chunk.usage;
             
             if (chunk.choices[0]?.delta?.content) {
               if (!firstTokenReceived) {
                 firstTokenTime = Date.now();
                 firstTokenReceived = true;
-                // Update the message with first token time immediately
                 setMessages(prev => prev.map(msg => 
                   msg.id === assistantMessage.id ? { 
                     ...msg, 
@@ -797,7 +734,6 @@ export default function MainGeneration() {
             }
           }
         } catch (streamError) {
-          // Handle any streaming errors
           if (streamError instanceof Error && streamError.message !== 'Request cancelled by user') {
             throw streamError;
           }
@@ -807,24 +743,14 @@ export default function MainGeneration() {
         const timeToFirstToken = firstTokenTime ? firstTokenTime - requestStart : undefined;
         const totalResponseTime = responseEnd - requestStart;
         const actualResponseTime = firstTokenTime ? responseEnd - firstTokenTime : undefined;
-        
-        // Use actual usage data if available
         const completionTokens = finalUsage?.completion_tokens || 0;
 
-        // Update API response data with final response
         const finalApiResponse: ApiResponseData = {
           ...apiResponseData,
           responseData: {
             content: fullContent,
             usage: finalUsage,
-            timing: {
-              requestStart,
-              firstTokenTime,
-              responseEnd,
-              timeToFirstToken,
-              totalResponseTime,
-              actualResponseTime
-            },
+            timing: { requestStart, firstTokenTime, responseEnd, timeToFirstToken, totalResponseTime, actualResponseTime },
             cost: finalUsage ? calculateCost(finalUsage.prompt_tokens, finalUsage.completion_tokens, selectedModel.pricing) : undefined
           },
           timestamp: new Date()
@@ -835,49 +761,27 @@ export default function MainGeneration() {
           msg.id === assistantMessage.id ? { 
             ...msg, 
             isStreaming: false,
-            usage: finalUsage || {
-              prompt_tokens: 0, // We don't have prompt tokens in streaming
-              completion_tokens: completionTokens,
-              total_tokens: completionTokens
-            },
+            usage: finalUsage || { prompt_tokens: 0, completion_tokens: completionTokens, total_tokens: completionTokens },
             cost: finalUsage ? calculateCost(finalUsage.prompt_tokens, finalUsage.completion_tokens, selectedModel.pricing) : undefined,
-            timing: {
-              requestStart,
-              firstTokenTime,
-              responseEnd,
-              timeToFirstToken,
-              totalResponseTime,
-              actualResponseTime
-            },
+            timing: { requestStart, firstTokenTime, responseEnd, timeToFirstToken, totalResponseTime, actualResponseTime },
             rawResponse: finalApiResponse
           } : msg
         ));
       } else {
         const response = await openRouterService.createCompletion(request, controller);
-        
-        // Check if request was cancelled
-        if (!response) {
-          return;
-        }
+        if (!response) return;
         
         const content = response.choices[0]?.message?.content || 'No response received';
-        
         const responseEnd = Date.now();
         const totalResponseTime = responseEnd - requestStart;
-        const actualResponseTime = totalResponseTime; // For text responses, actual response time equals total time
+        const actualResponseTime = totalResponseTime;
         
-        // Update API response data with final response
         const finalApiResponse: ApiResponseData = {
           ...apiResponseData,
           responseData: {
             content,
             usage: response.usage,
-            timing: {
-              requestStart,
-              responseEnd,
-              totalResponseTime,
-              actualResponseTime
-            },
+            timing: { requestStart, responseEnd, totalResponseTime, actualResponseTime },
             cost: response.usage ? calculateCost(response.usage.prompt_tokens, response.usage.completion_tokens, selectedModel.pricing) : undefined
           },
           timestamp: new Date()
@@ -893,12 +797,7 @@ export default function MainGeneration() {
           responseType,
           usage: response.usage,
           cost: response.usage ? calculateCost(response.usage.prompt_tokens, response.usage.completion_tokens, selectedModel.pricing) : undefined,
-          timing: {
-            requestStart,
-            responseEnd,
-            totalResponseTime,
-            actualResponseTime
-          },
+          timing: { requestStart, responseEnd, totalResponseTime, actualResponseTime },
           rawResponse: finalApiResponse
         };
         setMessages(prev => [...prev, assistantMessage]);
@@ -906,11 +805,7 @@ export default function MainGeneration() {
     } catch (err) {
       console.error('Error sending message:', err);
       
-      // Handle cancellation differently - this should not happen anymore with the new approach
-      if (err instanceof Error && err.message === 'Request cancelled by user') {
-        // Don't show error for user cancellation
-        return;
-      }
+      if (err instanceof Error && err.message === 'Request cancelled by user') return;
       
       setError(err instanceof Error ? err.message : 'Failed to send message');
       
@@ -930,26 +825,22 @@ export default function MainGeneration() {
     }
   };
 
-  // ========== UTILITY FUNCTIONS ==========
   const handleCopy = (content: string) => navigator.clipboard.writeText(content);
   const handleClearChat = () => {
     setMessages([]);
     setCurrentApiResponse(null);
   };
 
-  // ========== RENDER ==========
+  // ===========================
+  // RENDER
+  // ===========================
+
   return (
     <div className="w-full bg-dark-100 flex flex-col h-screen overflow-hidden">
-
-      {/* Main Content - Two Column Layout */}
       <div className="flex-1 flex overflow-hidden">
-        {/* Left Column - Chat Messages */}
         <div className="w-2/3 flex flex-col overflow-hidden border-r border-dark-400/30">
-          {/* Chat Header */}
           <div className="px-6 py-4 bg-dark-100 border-b border-dark-400/30">
-            {/* Controls Row */}
             <div className="flex flex-col lg:flex-row gap-4 items-start lg:items-center justify-between">
-              {/* Model Selection */}
               <div className="flex-1 w-full lg:max-w-md">
                 <ModelSelector
                   selectedModel={selectedModel}
@@ -961,7 +852,6 @@ export default function MainGeneration() {
                 />
               </div>
               
-              {/* Response Type Selector and New Chat Button */}
               <div className="flex items-center gap-4">
                 <ResponseTypeSelector responseType={responseType} onResponseTypeChange={setResponseType} />
                 <button
@@ -999,9 +889,7 @@ export default function MainGeneration() {
                       )}
                     </div>
                   ))}
-                  {isTyping && selectedModel && (
-                    <TypingIndicator model={getModelDisplayName(selectedModel)} />
-                  )}
+                  {isTyping && selectedModel && <TypingIndicator model={getModelDisplayName(selectedModel)} />}
                   <div ref={messagesEndRef} />
                 </>
               )}
@@ -1020,16 +908,11 @@ export default function MainGeneration() {
           </div>
         </div>
 
-        {/* Right Column - JSON Response Viewer */}
         <div className="w-1/3 bg-dark-200/50 border-l border-dark-400/30">
-          <JsonResponseViewer 
-            responseData={currentApiResponse} 
-            isStreaming={isLoading || isTyping}
-          />
+          <JsonResponseViewer responseData={currentApiResponse} isStreaming={isLoading || isTyping} />
         </div>
       </div>
 
-      {/* Connection Status - Bottom Right */}
       <div className="fixed bottom-4 right-4 z-50">
         <div className="flex items-center space-x-2 px-3 py-2 bg-dark-300/90 border border-dark-400/50 rounded-lg">
           <div className={`w-2 h-2 rounded-full ${isConnected ? 'bg-green-500' : 'bg-red-500'}`}></div>
@@ -1039,4 +922,3 @@ export default function MainGeneration() {
     </div>
   );
 }
-
