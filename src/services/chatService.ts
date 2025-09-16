@@ -1,6 +1,6 @@
 "use client";
 
-import { OpenRouterModel, OpenRouterMessage, OpenRouterResponse, OpenRouterStreamChunk } from './openrouterService';
+import { OpenRouterMessage, OpenRouterResponse, OpenRouterStreamChunk } from './openrouterService';
 
 export interface ChatRequest {
   model: string;

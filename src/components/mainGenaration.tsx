@@ -1,5 +1,5 @@
 "use client";
-import { useState, useRef, useEffect, KeyboardEvent } from 'react';
+import { useState, useRef, useEffect, KeyboardEvent, useCallback, useMemo, memo } from 'react';
 import { Zap, MessageSquare, Copy, Check, RefreshCw, AlertCircle, Sparkles, ChevronDown, Loader2, Square } from 'lucide-react';
 import { OpenRouterModel, OpenRouterMessage, formatModelName, formatProvider, calculateCost, OpenRouterService } from '@/services/openrouterService';
 import { chatService, ChatRequest } from '@/services/chatService';
@@ -197,14 +197,14 @@ const ModelSelector = ({
         className="flex items-center justify-between w-full px-3 py-2 bg-dark-200 border border-dark-400/40 rounded-lg hover:bg-dark-300 hover:border-blue-primary/40 group"
       >
         <div className="flex items-center space-x-2">
-          <div className="text-left">
-            <div className="text-white font-semibold text-sm">
-              {selectedModel ? getModelDisplayName(selectedModel) : 'Select Model'}
+            <div className="text-left">
+              <div className="text-white font-semibold text-sm">
+                {selectedModel ? getModelDisplayName(selectedModel) : 'Select Model'}
+              </div>
+              <div className="text-gray-400 text-xs">
+                {selectedModel ? `${getModelProvider(selectedModel)} • ${selectedModel.context_length.toLocaleString()} tokens` : 'Choose model'}
+              </div>
             </div>
-            <div className="text-gray-400 text-xs">
-              {selectedModel ? `${getModelProvider(selectedModel)} • ${selectedModel.context_length.toLocaleString()} tokens` : 'Choose model'}
-            </div>
-          </div>
         </div>
         <div className="flex items-center space-x-2">
           {selectedModel && <div className="px-2 py-1 bg-blue-primary text-white text-xs rounded font-medium">Active</div>}
@@ -310,7 +310,7 @@ const ResponseTypeSelector = ({ responseType, onResponseTypeChange }: {
 // MESSAGE COMPONENTS
 // ===========================
 
-const UserMessage = ({ message }: { message: Message }) => (
+const UserMessage = memo(({ message }: { message: Message }) => (
   <div className="flex justify-end mb-4">
     <div className="max-w-[85%] lg:max-w-[75%]">
       <div className="bg-blue-primary text-white px-4 py-3 rounded-2xl rounded-br-md">
@@ -321,7 +321,8 @@ const UserMessage = ({ message }: { message: Message }) => (
       </div>
     </div>
   </div>
-);
+));
+UserMessage.displayName = 'UserMessage';
 
 const RealtimeTimer = ({ startTime, firstTokenTime, isStreaming }: { 
   startTime: number; 
@@ -431,13 +432,13 @@ const ResponseCalculator = ({ timing, usage, isStreaming }: {
   );
 };
 
-const AssistantMessage = ({ message, onCopy }: { message: Message; onCopy: (content: string) => void; }) => {
+const AssistantMessage = memo(({ message, onCopy }: { message: Message; onCopy: (content: string) => void; }) => {
   const [copied, setCopied] = useState(false);
-  const handleCopy = () => { 
+  const handleCopy = useCallback(() => { 
     onCopy(message.content); 
     setCopied(true); 
     setTimeout(() => setCopied(false), 2000); 
-  };
+  }, [onCopy, message.content]);
 
   return (
     <div className="flex justify-start mb-4">
@@ -470,9 +471,10 @@ const AssistantMessage = ({ message, onCopy }: { message: Message; onCopy: (cont
       </div>
     </div>
   );
-};
+});
+AssistantMessage.displayName = 'AssistantMessage';
 
-const TypingIndicator = ({ model }: { model: string }) => (
+const TypingIndicator = memo(({ model }: { model: string }) => (
   <div className="flex justify-start mb-4">
     <div className="max-w-[85%] lg:max-w-[75%]">
       <div className="bg-dark-300 text-white px-4 py-3 rounded-2xl rounded-bl-md border border-dark-200/50">
@@ -487,9 +489,10 @@ const TypingIndicator = ({ model }: { model: string }) => (
       </div>
     </div>
   </div>
-);
+));
+TypingIndicator.displayName = 'TypingIndicator';
 
-const EmptyState = () => (
+const EmptyState = memo(() => (
   <div className="flex justify-center items-center h-full min-h-[400px]">
     <div className="text-center">
       <div className="w-16 h-16 mx-auto mb-6 bg-blue-primary/20 rounded-full flex items-center justify-center">
@@ -501,29 +504,57 @@ const EmptyState = () => (
       </p>
     </div>
   </div>
-);
+));
+EmptyState.displayName = 'EmptyState';
+
+// ===========================
+// MESSAGE LIST COMPONENT
+// ===========================
+
+const MessageList = memo(({ 
+  messages, 
+  isTyping, 
+  selectedModelDisplayName, 
+  onCopy 
+}: { 
+  messages: Message[]; 
+  isTyping: boolean; 
+  selectedModelDisplayName: string; 
+  onCopy: (content: string) => void; 
+}) => {
+  if (messages.length === 0) {
+    return <EmptyState />;
+  }
+
+  return (
+    <>
+      {messages.map((message) => (
+        <div key={message.id}>
+          {message.type === 'user' ? (
+            <UserMessage message={message} />
+          ) : (
+            <AssistantMessage message={message} onCopy={onCopy} />
+          )}
+        </div>
+      ))}
+      {isTyping && <TypingIndicator model={selectedModelDisplayName} />}
+    </>
+  );
+});
+MessageList.displayName = 'MessageList';
 
 // ===========================
 // JSON RESPONSE VIEWER
 // ===========================
 
-const JsonResponseViewer = ({ responseData, isStreaming }: { 
+const JsonResponseViewer = memo(({ responseData, isStreaming }: { 
   responseData: ApiResponseData | null; 
   isStreaming: boolean;
 }) => {
   const [copied, setCopied] = useState(false);
   const [showFullData, setShowFullData] = useState(false);
 
-  const handleCopy = () => {
-    if (responseData) {
-      const dataToCopy = showFullData ? responseData : getSimplifiedResponseData(responseData);
-      navigator.clipboard.writeText(JSON.stringify(dataToCopy, null, 2));
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
-    }
-  };
-
-  const getSimplifiedResponseData = (data: ApiResponseData) => ({
+  const getSimplifiedResponseData = useCallback((data: ApiResponseData) => ({
     model: { id: data.id, name: data.name, author: data.author },
     request: {
       message: data.requestData?.messages?.[0]?.content || 'No message',
@@ -533,7 +564,16 @@ const JsonResponseViewer = ({ responseData, isStreaming }: {
     },
     response: data.responseData || null,
     timestamp: data.timestamp
-  });
+  }), []);
+
+  const handleCopy = useCallback(() => {
+    if (responseData) {
+      const dataToCopy = showFullData ? responseData : getSimplifiedResponseData(responseData);
+      navigator.clipboard.writeText(JSON.stringify(dataToCopy, null, 2));
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    }
+  }, [responseData, showFullData, getSimplifiedResponseData]);
 
   if (!responseData) {
     return (
@@ -586,7 +626,8 @@ const JsonResponseViewer = ({ responseData, isStreaming }: {
       </div>
     </div>
   );
-};
+});
+JsonResponseViewer.displayName = 'JsonResponseViewer';
 
 
 // ===========================
@@ -607,8 +648,11 @@ export default function MainGeneration() {
   const [currentApiResponse, setCurrentApiResponse] = useState<ApiResponseData | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
-  const scrollToBottom = () => messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  useEffect(() => scrollToBottom(), [messages, isTyping]);
+  const scrollToBottom = useCallback(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, []);
+  
+  useEffect(() => scrollToBottom(), [messages, isTyping, scrollToBottom]);
 
   // ===========================
   // INITIALIZATION
@@ -895,11 +939,24 @@ export default function MainGeneration() {
     }
   };
 
-  const handleCopy = (content: string) => navigator.clipboard.writeText(content);
-  const handleClearChat = () => {
+  const handleCopy = useCallback((content: string) => {
+    navigator.clipboard.writeText(content);
+  }, []);
+  
+  const handleClearChat = useCallback(() => {
     setMessages([]);
     setCurrentApiResponse(null);
-  };
+  }, []);
+
+  // ===========================
+  // MEMOIZED VALUES
+  // ===========================
+  
+  const selectedModelDisplayName = useMemo(() => 
+    selectedModel ? getModelDisplayName(selectedModel) : 'Select Model',
+    [selectedModel]
+  );
+  
 
   // ===========================
   // RENDER
@@ -945,23 +1002,13 @@ export default function MainGeneration() {
 
           <div className="flex-1 overflow-y-auto scrollbar-thin scrollbar-thumb-gray-600 scrollbar-track-gray-800">
             <div className="p-4 space-y-4 min-h-full">
-              {messages.length === 0 ? (
-                <EmptyState />
-              ) : (
-                <>
-                  {messages.map((message) => (
-                    <div key={message.id}>
-                      {message.type === 'user' ? (
-                        <UserMessage message={message} />
-                      ) : (
-                        <AssistantMessage message={message} onCopy={handleCopy} />
-                      )}
-                    </div>
-                  ))}
-                  {isTyping && selectedModel && <TypingIndicator model={getModelDisplayName(selectedModel)} />}
-                  <div ref={messagesEndRef} />
-                </>
-              )}
+              <MessageList 
+                messages={messages}
+                isTyping={isTyping && !!selectedModel}
+                selectedModelDisplayName={selectedModelDisplayName}
+                onCopy={handleCopy}
+              />
+              <div ref={messagesEndRef} />
             </div>
           </div>
           <div className="px-4 pt-4 pb-4">
@@ -971,7 +1018,7 @@ export default function MainGeneration() {
                 onStopGeneration={handleStopGeneration}
                 isLoading={isLoading}
                 isGenerating={isLoading || isTyping}
-                placeholder={selectedModel ? `Message ${getModelDisplayName(selectedModel)}...` : "Select a model to start..."}
+                placeholder={selectedModel ? `Message ${selectedModelDisplayName}...` : "Select a model to start..."}
               />
             </div>
           </div>
