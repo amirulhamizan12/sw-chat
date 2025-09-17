@@ -1,6 +1,23 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { OpenRouterService, OpenRouterRequest, OpenRouterMessage } from '@/services/openrouterService';
 
+// ========== MODEL MAPPING ==========
+// Maps our internal model IDs to OpenRouter model IDs
+const MODEL_MAPPING: Record<string, string> = {
+  'open-router/gemini-2.0-flash-001': 'google/gemini-2.0-flash-001',
+  'open-router/gemini-2.5-flash': 'google/gemini-2.5-flash',
+  'open-router/gpt-5': 'openai/gpt-5',
+  'open-router/gpt-oss-120b': 'openai/gpt-oss-120b',
+  'open-router/gpt-oss-20b': 'openai/gpt-oss-20b',
+  'open-router/llama-4-maverick': 'meta-llama/llama-4-maverick',
+  'open-router/llama-4-scout': 'meta-llama/llama-4-scout',
+};
+
+// Helper function to map internal model ID to external OpenRouter model ID
+function mapToExternalModelId(internalId: string): string {
+  return MODEL_MAPPING[internalId] || internalId;
+}
+
 // Rate limiting store (in production, use Redis or database)
 const rateLimitStore = new Map<string, { count: number; resetTime: number }>();
 
@@ -124,9 +141,12 @@ export async function POST(request: NextRequest) {
     // Create OpenRouter service instance
     const openRouterService = new OpenRouterService(process.env.OPENROUTER_API_KEY);
 
+    // Map internal model ID to external OpenRouter model ID
+    const externalModelId = mapToExternalModelId(body.model);
+    
     // Prepare request
     const openRouterRequest: OpenRouterRequest = {
-      model: body.model,
+      model: externalModelId,
       messages: body.messages as OpenRouterMessage[],
       stream: body.stream || false,
       temperature: body.temperature || 0.7,

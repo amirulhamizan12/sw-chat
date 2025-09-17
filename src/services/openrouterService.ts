@@ -50,6 +50,23 @@ export interface OpenRouterError {
 // ========== CONFIGURATION ==========
 const OPENROUTER_BASE_URL = 'https://openrouter.ai/api/v1';
 
+// ========== MODEL MAPPING ==========
+// Maps our internal model IDs to OpenRouter model IDs
+const MODEL_MAPPING: Record<string, string> = {
+  'open-router/gemini-2.0-flash-001': 'google/gemini-2.0-flash-001',
+  'open-router/gemini-2.5-flash': 'google/gemini-2.5-flash',
+  'open-router/gpt-5': 'openai/gpt-5',
+  'open-router/gpt-oss-120b': 'openai/gpt-oss-120b',
+  'open-router/gpt-oss-20b': 'openai/gpt-oss-20b',
+  'open-router/llama-4-maverick': 'meta-llama/llama-4-maverick',
+  'open-router/llama-4-scout': 'meta-llama/llama-4-scout',
+};
+
+// Reverse mapping for getting our internal ID from OpenRouter ID
+const REVERSE_MODEL_MAPPING: Record<string, string> = Object.fromEntries(
+  Object.entries(MODEL_MAPPING).map(([internal, external]) => [external, internal])
+);
+
 // Support both client and server-side API key access
 const getApiKey = (): string => {
   // Server-side: try OPENROUTER_API_KEY first, then NEXT_PUBLIC_OPENROUTER_API_KEY
@@ -89,6 +106,15 @@ export class OpenRouterService {
     };
   }
 
+  // ========== MODEL MAPPING UTILITIES ==========
+  private mapToExternalModelId(internalId: string): string {
+    return MODEL_MAPPING[internalId] || internalId;
+  }
+
+  private mapToInternalModelId(externalId: string): string {
+    return REVERSE_MODEL_MAPPING[externalId] || externalId;
+  }
+
   // ========== MODELS MANAGEMENT ==========
   async getModels(forceRefresh = false): Promise<OpenRouterModel[]> {
     if (!forceRefresh && this.modelsCache) {
@@ -96,9 +122,9 @@ export class OpenRouterService {
       if (now - this.modelsCache.timestamp < this.CACHE_DURATION) return this.modelsCache.data;
     }
 
-    // Always return only our curated models, regardless of API key status
+    // Always return only our curated models with internal IDs, regardless of API key status
     const curatedModels = this.getPopularModels().map(model => ({
-      id: model.id!,
+      id: this.mapToInternalModelId(model.id!), // Use internal ID for display
       name: model.name!,
       description: model.description!,
       context_length: model.context_length!,
@@ -131,10 +157,16 @@ export class OpenRouterService {
     }
 
     try {
+      // Map internal model ID to external OpenRouter model ID
+      const mappedRequest = {
+        ...request,
+        model: this.mapToExternalModelId(request.model)
+      };
+
       const response = await fetch(`${this.baseUrl}/chat/completions`, {
         method: 'POST',
         headers: this.getHeaders(),
-        body: JSON.stringify(request),
+        body: JSON.stringify(mappedRequest),
         signal: abortController?.signal,
       });
 
@@ -182,10 +214,17 @@ export class OpenRouterService {
     }
 
     try {
+      // Map internal model ID to external OpenRouter model ID
+      const mappedRequest = {
+        ...request,
+        model: this.mapToExternalModelId(request.model),
+        stream: true
+      };
+
       const response = await fetch(`${this.baseUrl}/chat/completions`, {
         method: 'POST',
         headers: this.getHeaders(),
-        body: JSON.stringify({ ...request, stream: true }),
+        body: JSON.stringify(mappedRequest),
         signal: abortController?.signal,
       });
 

@@ -1,6 +1,7 @@
 "use client";
 import { useState, useRef, useEffect, KeyboardEvent, useCallback, useMemo, memo } from 'react';
-import { Zap, MessageSquare, Copy, Check, RefreshCw, AlertCircle, Sparkles, ChevronDown, Loader2, Square } from 'lucide-react';
+import Link from 'next/link';
+import { Zap, MessageSquare, Copy, Check, RefreshCw, AlertCircle, Sparkles, ChevronDown, Loader2, Square, Home } from 'lucide-react';
 import { OpenRouterModel, OpenRouterMessage, formatModelName, formatProvider, calculateCost, OpenRouterService } from '@/services/openrouterService';
 import { chatService, ChatRequest } from '@/services/chatService';
 
@@ -672,7 +673,7 @@ export default function MainGeneration() {
         setIsConnected(true); // Always connected since we have hardcoded models
         
         if (!selectedModel && models.length > 0) {
-          const preferredModelIds = ['google/gemini-2.5-flash', 'google/gemini-2.0-flash-001', 'openai/gpt-5', 'meta-llama/llama-4-maverick'];
+          const preferredModelIds = ['open-router/gemini-2.5-flash', 'open-router/gemini-2.0-flash-001', 'open-router/gpt-5', 'open-router/llama-4-maverick'];
           const defaultModel = models.find(model => preferredModelIds.includes(model.id)) || models[0];
           setSelectedModel(defaultModel);
         }
@@ -964,6 +965,26 @@ export default function MainGeneration() {
 
   return (
     <div className="w-full bg-dark-100 flex flex-col h-screen overflow-hidden">
+      {/* Navigation Header */}
+      <nav className="px-6 py-4 bg-dark-100 border-b border-dark-400/30">
+        <div className="flex items-center justify-between">
+          <Link 
+            href="/"
+            className="flex items-center space-x-2 text-gray-300 hover:text-white transition-colors"
+          >
+            <Home className="w-5 h-5" />
+            <span className="font-medium">Back to Home</span>
+          </Link>
+          <div className="flex items-center space-x-2">
+            <div className="w-6 h-6 bg-blue-primary rounded-lg flex items-center justify-center">
+              <Sparkles className="w-4 h-4 text-white" />
+            </div>
+            <span className="text-lg font-semibold text-white">SuperWizard Chat</span>
+          </div>
+          <div className="w-24"></div> {/* Spacer for centering */}
+        </div>
+      </nav>
+
       <div className="flex-1 flex overflow-hidden">
         <div className="w-2/3 flex flex-col overflow-hidden border-r border-dark-400/30">
           <div className="px-6 py-4 bg-dark-100 border-b border-dark-400/30">

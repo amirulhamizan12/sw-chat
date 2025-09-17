@@ -106,7 +106,7 @@ export class ChatService {
     try {
       // Test connection by making a simple chat request
       const testRequest: ChatRequest = {
-        model: 'google/gemini-2.5-flash',
+        model: 'open-router/gemini-2.5-flash',
         messages: [{ role: 'user', content: 'test' }],
         max_tokens: 1
       };
