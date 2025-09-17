@@ -1,4 +1,4 @@
-// ========== TYPES & INTERFACES ==========
+// ===== TYPES =====
 export interface OpenRouterModel {
   id: string;
   name: string;
@@ -47,12 +47,10 @@ export interface OpenRouterError {
   error: { message: string; type: string; code?: string; };
 }
 
-// ========== CONFIGURATION ==========
-const OPENROUTER_BASE_URL = 'https://openrouter.ai/api/v1';
-
-// ========== MODEL MAPPING ==========
-// Maps our internal model IDs to OpenRouter model IDs
-const MODEL_MAPPING: Record<string, string> = {
+// ===== CONSTANTS =====
+const BASE_URL = 'https://openrouter.ai/api/v1';
+const CACHE_DURATION = 5 * 60 * 1000;
+const MODEL_MAP: Record<string, string> = {
   'open-router/gemini-2.0-flash-001': 'google/gemini-2.0-flash-001',
   'open-router/gemini-2.5-flash': 'google/gemini-2.5-flash',
   'open-router/gpt-5': 'openai/gpt-5',
@@ -62,41 +60,26 @@ const MODEL_MAPPING: Record<string, string> = {
   'open-router/llama-4-scout': 'meta-llama/llama-4-scout',
 };
 
-// Reverse mapping for getting our internal ID from OpenRouter ID
-const REVERSE_MODEL_MAPPING: Record<string, string> = Object.fromEntries(
-  Object.entries(MODEL_MAPPING).map(([internal, external]) => [external, internal])
-);
+const REV_MAP = Object.fromEntries(Object.entries(MODEL_MAP).map(([k, v]) => [v, k]));
 
-// Support both client and server-side API key access
-const getApiKey = (): string => {
-  // Server-side: try OPENROUTER_API_KEY first, then NEXT_PUBLIC_OPENROUTER_API_KEY
-  if (typeof window === 'undefined') {
-    return process.env.OPENROUTER_API_KEY || process.env.NEXT_PUBLIC_OPENROUTER_API_KEY || '';
-  }
-  // Client-side: only NEXT_PUBLIC_OPENROUTER_API_KEY
-  return process.env.NEXT_PUBLIC_OPENROUTER_API_KEY || '';
-};
+const getKey = () => typeof window === 'undefined' 
+  ? process.env.OPENROUTER_API_KEY || process.env.NEXT_PUBLIC_OPENROUTER_API_KEY || ''
+  : process.env.NEXT_PUBLIC_OPENROUTER_API_KEY || '';
 
-const OPENROUTER_API_KEY = getApiKey();
+const API_KEY = getKey();
+if (!API_KEY) console.warn('OpenRouter API key not found. Set OPENROUTER_API_KEY or NEXT_PUBLIC_OPENROUTER_API_KEY.');
 
-if (!OPENROUTER_API_KEY) {
-  console.warn('OpenRouter API key not found. Please set OPENROUTER_API_KEY (server-side) or NEXT_PUBLIC_OPENROUTER_API_KEY (client-side) in your environment variables.');
-}
-
-// ========== SERVICE CLASS ==========
+// ===== SERVICE =====
 export class OpenRouterService {
   private apiKey: string;
-  private baseUrl: string;
   private models: OpenRouterModel[] = [];
-  private modelsCache: { data: OpenRouterModel[]; timestamp: number } | null = null;
-  private readonly CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
+  private cache: { data: OpenRouterModel[]; timestamp: number } | null = null;
 
-  constructor(apiKey?: string) {
-    this.apiKey = apiKey || OPENROUTER_API_KEY || '';
-    this.baseUrl = OPENROUTER_BASE_URL;
+  constructor(apiKey = API_KEY) {
+    this.apiKey = apiKey;
   }
 
-  // ========== AUTHENTICATION ==========
+  // ===== HEADERS =====
   private getHeaders(): HeadersInit {
     return {
       'Authorization': `Bearer ${this.apiKey}`,
@@ -106,145 +89,107 @@ export class OpenRouterService {
     };
   }
 
-  // ========== MODEL MAPPING UTILITIES ==========
-  private mapToExternalModelId(internalId: string): string {
-    return MODEL_MAPPING[internalId] || internalId;
-  }
+  // ===== MODEL MAPPING =====
+  private mapToExternalModelId(id: string) { return MODEL_MAP[id] || id; }
+  private mapToInternalModelId(id: string) { return REV_MAP[id] || id; }
 
-  private mapToInternalModelId(externalId: string): string {
-    return REVERSE_MODEL_MAPPING[externalId] || externalId;
-  }
-
-  // ========== MODELS MANAGEMENT ==========
+  // ===== MODELS =====
   async getModels(forceRefresh = false): Promise<OpenRouterModel[]> {
-    if (!forceRefresh && this.modelsCache) {
-      const now = Date.now();
-      if (now - this.modelsCache.timestamp < this.CACHE_DURATION) return this.modelsCache.data;
+    if (!forceRefresh && this.cache && Date.now() - this.cache.timestamp < CACHE_DURATION) {
+      return this.cache.data;
     }
 
-    // Always return only our curated models with internal IDs, regardless of API key status
-    const curatedModels = this.getPopularModels().map(model => ({
-      id: this.mapToInternalModelId(model.id!), // Use internal ID for display
-      name: model.name!,
-      description: model.description!,
-      context_length: model.context_length!,
-      pricing: model.pricing!,
-      top_provider: { context_length: model.context_length!, pricing: model.pricing! },
+    this.models = this.getPopularModels().map(m => ({
+      id: this.mapToInternalModelId(m.id!),
+      name: m.name!,
+      description: m.description!,
+      context_length: m.context_length!,
+      pricing: m.pricing!,
+      top_provider: { context_length: m.context_length!, pricing: m.pricing! },
       per_request_limits: { prompt_tokens: 0, completion_tokens: 4000 }
     }));
     
-    this.models = curatedModels;
-    this.modelsCache = { data: this.models, timestamp: Date.now() };
+    this.cache = { data: this.models, timestamp: Date.now() };
     return this.models;
   }
 
-  // ========== CHAT COMPLETION ==========
-  async createCompletion(request: OpenRouterRequest, abortController?: AbortController): Promise<OpenRouterResponse> {
+  // ===== COMPLETION =====
+  async createCompletion(req: OpenRouterRequest, abort?: AbortController): Promise<OpenRouterResponse> {
     if (!this.apiKey) {
-      console.warn('No API key provided, returning mock response');
+      console.warn('No API key, returning mock response');
       return {
         id: `mock-${Date.now()}`,
         object: 'chat.completion',
         created: Date.now(),
-        model: request.model,
-        choices: [{
-          index: 0,
-          message: { role: 'assistant', content: `Mock response from ${request.model}: This is a demo response. Please set your OpenRouter API key to use real AI models.` },
-          finish_reason: 'stop'
-        }],
+        model: req.model,
+        choices: [{ index: 0, message: { role: 'assistant', content: `Mock response from ${req.model}: Demo response. Set API key for real models.` }, finish_reason: 'stop' }],
         usage: { prompt_tokens: 10, completion_tokens: 20, total_tokens: 30 }
       };
     }
 
     try {
-      // Map internal model ID to external OpenRouter model ID
-      const mappedRequest = {
-        ...request,
-        model: this.mapToExternalModelId(request.model)
-      };
-
-      const response = await fetch(`${this.baseUrl}/chat/completions`, {
+      const res = await fetch(`${BASE_URL}/chat/completions`, {
         method: 'POST',
         headers: this.getHeaders(),
-        body: JSON.stringify(mappedRequest),
-        signal: abortController?.signal,
+        body: JSON.stringify({ ...req, model: this.mapToExternalModelId(req.model) }),
+        signal: abort?.signal,
       });
 
-      if (!response.ok) {
-        const errorData: OpenRouterError = await response.json();
-        throw new Error(errorData.error?.message || `API request failed: ${response.status}`);
+      if (!res.ok) {
+        const err: OpenRouterError = await res.json();
+        throw new Error(err.error?.message || `API failed: ${res.status}`);
       }
-      return await response.json();
-    } catch (error) {
-      if (error instanceof Error && error.name === 'AbortError') {
-        throw new Error('Request cancelled by user');
-      }
-      console.error('Error creating completion:', error);
-      throw error;
+      return await res.json();
+    } catch (e) {
+      if (e instanceof Error && e.name === 'AbortError') throw new Error('Request cancelled');
+      console.error('Completion error:', e);
+      throw e;
     }
   }
 
-  // ========== STREAMING COMPLETION ==========
-  async *createStreamingCompletion(request: OpenRouterRequest, abortController?: AbortController): AsyncGenerator<OpenRouterStreamChunk, void, unknown> {
+  // ===== STREAMING =====
+  async *createStreamingCompletion(req: OpenRouterRequest, abort?: AbortController): AsyncGenerator<OpenRouterStreamChunk, void, unknown> {
     if (!this.apiKey) {
-      console.warn('No API key provided, returning mock streaming response');
-      const mockContent = `Mock streaming response from ${request.model}: This is a demo streaming response. Please set your OpenRouter API key to use real AI models.`;
-      const words = mockContent.split(' ');
+      console.warn('No API key, mock streaming');
+      const words = `Mock streaming from ${req.model}: Demo streaming response. Set API key for real models.`.split(' ');
       
       for (let i = 0; i < words.length; i++) {
-        // Check if request was cancelled
-        if (abortController?.signal.aborted) {
-          throw new Error('Request cancelled by user');
-        }
+        if (abort?.signal.aborted) throw new Error('Request cancelled');
         
         yield {
           id: `mock-${Date.now()}`,
           object: 'chat.completion.chunk',
           created: Date.now(),
-          model: request.model,
-          choices: [{
-            index: 0,
-            delta: { content: words[i] + (i < words.length - 1 ? ' ' : '') },
-            finish_reason: i === words.length - 1 ? 'stop' : undefined
-          }]
+          model: req.model,
+          choices: [{ index: 0, delta: { content: words[i] + (i < words.length - 1 ? ' ' : '') }, finish_reason: i === words.length - 1 ? 'stop' : undefined }]
         };
-        await new Promise(resolve => setTimeout(resolve, 100));
+        await new Promise(r => setTimeout(r, 100));
       }
       return;
     }
 
     try {
-      // Map internal model ID to external OpenRouter model ID
-      const mappedRequest = {
-        ...request,
-        model: this.mapToExternalModelId(request.model),
-        stream: true
-      };
-
-      const response = await fetch(`${this.baseUrl}/chat/completions`, {
+      const res = await fetch(`${BASE_URL}/chat/completions`, {
         method: 'POST',
         headers: this.getHeaders(),
-        body: JSON.stringify(mappedRequest),
-        signal: abortController?.signal,
+        body: JSON.stringify({ ...req, model: this.mapToExternalModelId(req.model), stream: true }),
+        signal: abort?.signal,
       });
 
-      if (!response.ok) {
-        const errorData: OpenRouterError = await response.json();
-        throw new Error(errorData.error?.message || `Streaming request failed: ${response.status}`);
+      if (!res.ok) {
+        const err: OpenRouterError = await res.json();
+        throw new Error(err.error?.message || `Streaming failed: ${res.status}`);
       }
 
-      const reader = response.body?.getReader();
-      if (!reader) throw new Error('No response body reader available');
+      const reader = res.body?.getReader();
+      if (!reader) throw new Error('No reader available');
 
       const decoder = new TextDecoder();
       let buffer = '';
 
       try {
         while (true) {
-          // Check if request was cancelled before reading
-          if (abortController?.signal.aborted) {
-            throw new Error('Request cancelled by user');
-          }
+          if (abort?.signal.aborted) throw new Error('Request cancelled');
 
           const { done, value } = await reader.read();
           if (done) break;
@@ -254,16 +199,15 @@ export class OpenRouterService {
           buffer = lines.pop() || '';
 
           for (const line of lines) {
-            const trimmedLine = line.trim();
-            if (trimmedLine.startsWith('data: ')) {
-              const data = trimmedLine.slice(6);
-              if (data === '[DONE]') return;
+            const data = line.trim();
+            if (data.startsWith('data: ')) {
+              const chunk = data.slice(6);
+              if (chunk === '[DONE]') return;
 
               try {
-                const chunk: OpenRouterStreamChunk = JSON.parse(data);
-                yield chunk;
-              } catch (parseError) {
-                console.warn('Failed to parse streaming chunk:', parseError);
+                yield JSON.parse(chunk);
+              } catch (e) {
+                console.warn('Parse error:', e);
               }
             }
           }
@@ -271,40 +215,32 @@ export class OpenRouterService {
       } finally {
         reader.releaseLock();
       }
-    } catch (error) {
-      if (error instanceof Error && error.name === 'AbortError') {
-        throw new Error('Request cancelled by user');
-      }
-      console.error('Error in streaming completion:', error);
-      throw error;
+    } catch (e) {
+      if (e instanceof Error && e.name === 'AbortError') throw new Error('Request cancelled');
+      console.error('Streaming error:', e);
+      throw e;
     }
   }
 
-  // ========== UTILITY METHODS ==========
+  // ===== UTILITIES =====
   async testConnection(): Promise<boolean> {
     try {
       if (!this.apiKey) {
-        console.warn('No OpenRouter API key provided. Please set NEXT_PUBLIC_OPENROUTER_API_KEY');
+        console.warn('No API key');
         return false;
       }
       await this.getModels();
       return true;
-    } catch (error) {
-      console.error('Connection test failed:', error);
+    } catch (e) {
+      console.error('Connection test failed:', e);
       return false;
     }
   }
 
-  getModelById(modelId: string): OpenRouterModel | undefined {
-    return this.models.find(model => model.id === modelId);
-  }
+  getModelById(id: string) { return this.models.find(m => m.id === id); }
+  getModelPricing(id: string) { return this.getModelById(id)?.pricing || null; }
 
-  getModelPricing(modelId: string): { prompt: string; completion: string } | null {
-    const model = this.getModelById(modelId);
-    return model?.pricing || null;
-  }
-
-  // ========== AVAILABLE MODELS ==========
+  // ===== POPULAR MODELS =====
   getPopularModels(): Partial<OpenRouterModel>[] {
     return [
       { id: 'google/gemini-2.5-flash', name: 'Gemini 2.5 Flash', description: 'Google\'s fastest and most efficient model', context_length: 1000000, pricing: { prompt: '$0.000075', completion: '$0.0003' } },
@@ -318,21 +254,10 @@ export class OpenRouterService {
   }
 }
 
-// ========== SINGLETON & HELPERS ==========
-export const openRouterService = OPENROUTER_API_KEY ? new OpenRouterService() : new OpenRouterService('');
+// ===== EXPORTS =====
+export const openRouterService = new OpenRouterService();
 
-export const formatModelName = (modelId: string): string => {
-  const parts = modelId.split('/');
-  return parts[parts.length - 1] || modelId;
-};
-
-export const formatProvider = (modelId: string): string => {
-  const parts = modelId.split('/');
-  return parts[0] || 'Unknown';
-};
-
-export const calculateCost = (promptTokens: number, completionTokens: number, pricing: { prompt: string; completion: string }): number => {
-  const promptCost = parseFloat(pricing.prompt.replace('$', '')) * (promptTokens / 1000);
-  const completionCost = parseFloat(pricing.completion.replace('$', '')) * (completionTokens / 1000);
-  return promptCost + completionCost;
-};
+export const formatModelName = (id: string) => id.split('/').pop() || id;
+export const formatProvider = (id: string) => id.split('/')[0] || 'Unknown';
+export const calculateCost = (prompt: number, completion: number, pricing: { prompt: string; completion: string }) => 
+  parseFloat(pricing.prompt.replace('$', '')) * (prompt / 1000) + parseFloat(pricing.completion.replace('$', '')) * (completion / 1000);

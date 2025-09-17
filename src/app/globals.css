@@ -150,3 +150,46 @@ body {
 .bg-blue-primary\/25 { background-color: rgba(1, 111, 254, 0.25); }
 .bg-blue-primary\/40 { background-color: rgba(1, 111, 254, 0.4); }
 .border-blue-primary\/40 { border-color: rgba(1, 111, 254, 0.4); }
+
+/* Mobile-specific improvements */
+@media (max-width: 640px) {
+  /* Improve touch targets */
+  button, input, textarea, select {
+    min-height: 44px;
+  }
+  
+  /* Better spacing for mobile */
+  .mobile-padding {
+    padding-left: 0.75rem;
+    padding-right: 0.75rem;
+  }
+  
+  /* Prevent zoom on input focus */
+  input, textarea, select {
+    font-size: 16px;
+  }
+  
+  /* Improve scroll behavior */
+  .overflow-y-auto {
+    -webkit-overflow-scrolling: touch;
+  }
+}
+
+/* Mobile sidebar animations */
+.mobile-sidebar-enter {
+  transform: translateX(100%);
+}
+
+.mobile-sidebar-enter-active {
+  transform: translateX(0);
+  transition: transform 300ms ease-in-out;
+}
+
+.mobile-sidebar-exit {
+  transform: translateX(0);
+}
+
+.mobile-sidebar-exit-active {
+  transform: translateX(100%);
+  transition: transform 300ms ease-in-out;
+}

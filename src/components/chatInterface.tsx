@@ -1,7 +1,6 @@
 "use client";
 import { useState, useRef, useEffect, KeyboardEvent, useCallback, useMemo, memo } from 'react';
-import Link from 'next/link';
-import { Zap, MessageSquare, Copy, Check, RefreshCw, AlertCircle, Sparkles, ChevronDown, Loader2, Square, Home } from 'lucide-react';
+import { Zap, MessageSquare, Copy, Check, RefreshCw, AlertCircle, Sparkles, ChevronDown, Loader2, Square, X, PanelRight } from 'lucide-react';
 import { OpenRouterModel, OpenRouterMessage, formatModelName, formatProvider, calculateCost, OpenRouterService } from '@/services/openrouterService';
 import { chatService, ChatRequest } from '@/services/chatService';
 
@@ -109,7 +108,7 @@ const MessageInput = ({
 
   return (
     <div className="relative group">
-      <div className={`relative flex items-end gap-3 p-3 rounded-xl bg-dark-200/80 border border-dark-400/30 ${isLoading ? 'opacity-70' : ''} min-h-[48px]`}>
+      <div className={`relative flex items-end gap-2 sm:gap-3 p-2 sm:p-3 rounded-xl bg-dark-200/80 border border-dark-400/30 ${isLoading ? 'opacity-70' : ''} min-h-[44px] sm:min-h-[48px]`}>
         <div className="flex-1 relative">
           <textarea
             ref={textareaRef}
@@ -118,24 +117,24 @@ const MessageInput = ({
             onKeyPress={handleKeyPress}
             placeholder={placeholder}
             disabled={isLoading}
-            className="w-full bg-transparent border-0 focus:outline-none placeholder:text-gray-400 text-white resize-none min-h-[24px] max-h-[100px] text-sm leading-relaxed pr-2 scrollbar-hide"
+            className="w-full bg-transparent border-0 focus:outline-none placeholder:text-gray-400 text-white resize-none min-h-[20px] sm:min-h-[24px] max-h-[100px] text-sm leading-relaxed pr-2 scrollbar-hide"
             rows={1}
-            style={{ height: '24px', scrollbarWidth: 'none', msOverflowStyle: 'none' }}
+            style={{ height: '20px', scrollbarWidth: 'none', msOverflowStyle: 'none' }}
           />
         </div>
         {isGenerating ? (
           <button
             onClick={onStopGeneration}
-            className="w-9 h-9 rounded-full flex items-center justify-center bg-red-500 hover:bg-red-600 text-white transition-all duration-200 shadow-lg hover:shadow-red-500/25"
+            className="w-8 h-8 sm:w-9 sm:h-9 rounded-full flex items-center justify-center bg-red-500 hover:bg-red-600 text-white transition-all duration-200 shadow-lg hover:shadow-red-500/25 flex-shrink-0"
             title="Stop generation"
           >
-            <Square className="w-4 h-4" />
+            <Square className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
           </button>
         ) : (
           <button
             onClick={handleSubmit}
             disabled={!hasContent || isLoading}
-            className={`w-9 h-9 rounded-full flex items-center justify-center transition-all duration-200 ${
+            className={`w-8 h-8 sm:w-9 sm:h-9 rounded-full flex items-center justify-center transition-all duration-200 flex-shrink-0 ${
               hasContent && !isLoading
                 ? 'bg-blue-primary hover:bg-blue-hover shadow-lg hover:shadow-blue-primary/25'
                 : 'bg-dark-400 text-gray-600 cursor-not-allowed'
@@ -143,9 +142,9 @@ const MessageInput = ({
             title={isLoading ? 'Sending...' : 'Send message'}
           >
             {isLoading ? (
-              <Loader2 className="w-4 h-4 text-white animate-spin" />
+              <Loader2 className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-white animate-spin" />
             ) : (
-              <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <svg className="w-4 h-4 sm:w-5 sm:h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7l5 5m0 0l-5 5m5-5H6" />
               </svg>
             )}
@@ -195,34 +194,34 @@ const ModelSelector = ({
     <div className="relative" ref={dropdownRef}>
       <button
         onClick={onToggle}
-        className="flex items-center justify-between w-full px-3 py-2 bg-dark-200 border border-dark-400/40 rounded-lg hover:bg-dark-300 hover:border-blue-primary/40 group"
+        className="flex items-center justify-between w-full px-2 sm:px-3 py-2 bg-dark-200 border border-dark-400/40 rounded-lg hover:bg-dark-300 hover:border-blue-primary/40 group"
       >
-        <div className="flex items-center space-x-2">
-            <div className="text-left">
-              <div className="text-white font-semibold text-sm">
-                {selectedModel ? getModelDisplayName(selectedModel) : 'Select Model'}
+        <div className="flex items-center space-x-2 flex-1 min-w-0">
+            <div className="text-left flex-1 min-w-0">
+              <div className="text-white font-semibold text-xs sm:text-sm truncate">
+                {selectedModel ? getModelDisplayName(selectedModel) : 'Loading...'}
               </div>
-              <div className="text-gray-400 text-xs">
-                {selectedModel ? `${getModelProvider(selectedModel)} • ${selectedModel.context_length.toLocaleString()} tokens` : 'Choose model'}
+              <div className="text-gray-400 text-xs truncate">
+                {selectedModel ? `${getModelProvider(selectedModel)} • ${selectedModel.context_length.toLocaleString()} tokens` : 'Loading models...'}
               </div>
             </div>
         </div>
-        <div className="flex items-center space-x-2">
-          {selectedModel && <div className="px-2 py-1 bg-blue-primary text-white text-xs rounded font-medium">Active</div>}
-          <ChevronDown className={`w-4 h-4 text-gray-300 ${isOpen ? 'rotate-180' : ''}`} />
+        <div className="flex items-center space-x-1 sm:space-x-2 flex-shrink-0">
+          {selectedModel && <div className="px-1.5 sm:px-2 py-1 bg-blue-primary text-white text-xs rounded font-medium hidden sm:block">Active</div>}
+          <ChevronDown className={`w-3.5 h-3.5 sm:w-4 sm:h-4 text-gray-300 ${isOpen ? 'rotate-180' : ''}`} />
         </div>
       </button>
 
       {isOpen && (
-        <div className="absolute top-full left-0 right-0 mt-4 bg-dark-200/98 border border-dark-400/60 rounded-2xl z-50 max-h-96 overflow-hidden">
-          <div className="max-h-96 overflow-y-auto scrollbar-thin scrollbar-thumb-gray-600 scrollbar-track-transparent">
+        <div className="absolute top-full left-0 right-0 mt-2 sm:mt-4 bg-dark-200/98 border border-dark-400/60 rounded-xl sm:rounded-2xl z-50 max-h-80 sm:max-h-96 overflow-hidden">
+          <div className="max-h-80 sm:max-h-96 overflow-y-auto scrollbar-thin scrollbar-thumb-gray-600 scrollbar-track-transparent">
             {availableModels.length === 0 ? (
-              <div className="flex items-center justify-center py-12">
-                <AlertCircle className="w-8 h-8 text-red-400" />
-                <span className="ml-3 text-gray-400 text-lg">No models available</span>
+              <div className="flex items-center justify-center py-8 sm:py-12">
+                <AlertCircle className="w-6 h-6 sm:w-8 sm:h-8 text-red-400" />
+                <span className="ml-2 sm:ml-3 text-gray-400 text-sm sm:text-lg">No models available</span>
               </div>
             ) : (
-              <div className="p-3">
+              <div className="p-2 sm:p-3">
                 {availableModels.map((model) => (
                   <button
                     key={model.id}
@@ -235,19 +234,21 @@ const ModelSelector = ({
                   >
                     <div className="flex items-center justify-between">
                       <div className="flex-1 min-w-0">
-                        <div className="flex items-center space-x-2 mb-1">
-                          <span className="text-white font-semibold text-sm">{getModelDisplayName(model)}</span>
-                          <span className="px-1.5 py-0.5 bg-dark-400/60 text-gray-300 text-xs rounded font-medium">
-                            {getModelProvider(model)}
-                          </span>
-                          {selectedModel?.id === model.id && (
-                            <span className="px-1.5 py-0.5 bg-blue-primary text-white text-xs rounded font-bold">Selected</span>
-                          )}
+                        <div className="flex flex-col sm:flex-row sm:items-center space-y-1 sm:space-y-0 sm:space-x-2 mb-1">
+                          <span className="text-white font-semibold text-xs sm:text-sm truncate">{getModelDisplayName(model)}</span>
+                          <div className="flex items-center space-x-1">
+                            <span className="px-1 sm:px-1.5 py-0.5 bg-dark-400/60 text-gray-300 text-xs rounded font-medium">
+                              {getModelProvider(model)}
+                            </span>
+                            {selectedModel?.id === model.id && (
+                              <span className="px-1 sm:px-1.5 py-0.5 bg-blue-primary text-white text-xs rounded font-bold">Selected</span>
+                            )}
+                          </div>
                         </div>
-                        <div className="flex items-center space-x-1 text-xs text-gray-400">
+                        <div className="flex flex-col sm:flex-row sm:items-center space-y-1 sm:space-y-0 sm:space-x-1 text-xs text-gray-400">
                           <span>{model.context_length.toLocaleString()} tokens</span>
-                          <span>•</span>
-                          <span>{getModelCost(model)}</span>
+                          <span className="hidden sm:inline">•</span>
+                          <span className="text-xs">{getModelCost(model)}</span>
                         </div>
                       </div>
                     </div>
@@ -285,7 +286,7 @@ const ResponseTypeSelector = ({ responseType, onResponseTypeChange }: {
   ] as const;
 
   return (
-    <div className="flex space-x-2">
+    <div className="flex space-x-1 sm:space-x-2">
       {types.map((type) => {
         const Icon = type.icon;
         const isActive = responseType === type.id;
@@ -293,13 +294,13 @@ const ResponseTypeSelector = ({ responseType, onResponseTypeChange }: {
           <button
             key={type.id}
             onClick={() => onResponseTypeChange(type.id)}
-            className={`flex items-center space-x-2 px-5 py-2.5 rounded-xl font-medium ${
+            className={`flex items-center space-x-1 sm:space-x-2 px-3 sm:px-5 py-2 sm:py-2.5 rounded-xl font-medium ${
               isActive ? 'bg-blue-primary text-white' : 'bg-dark-300 text-gray-300 hover:bg-dark-400 hover:text-white'
             }`}
             title={type.description}
           >
-            <Icon className="w-4 h-4" />
-            <span className="text-sm font-medium">{type.label}</span>
+            <Icon className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+            <span className="text-xs sm:text-sm font-medium">{type.label}</span>
           </button>
         );
       })}
@@ -313,8 +314,8 @@ const ResponseTypeSelector = ({ responseType, onResponseTypeChange }: {
 
 const UserMessage = memo(({ message }: { message: Message }) => (
   <div className="flex justify-end mb-4">
-    <div className="max-w-[85%] lg:max-w-[75%]">
-      <div className="bg-blue-primary text-white px-4 py-3 rounded-2xl rounded-br-md">
+    <div className="max-w-[90%] sm:max-w-[85%] lg:max-w-[75%]">
+      <div className="bg-blue-primary text-white px-3 sm:px-4 py-3 rounded-2xl rounded-br-md">
         <div className="text-sm leading-relaxed break-words whitespace-pre-wrap">{message.content}</div>
       </div>
       <div className="mt-1 text-xs text-gray-400 text-right mr-1">
@@ -356,7 +357,7 @@ const RealtimeTimer = ({ startTime, firstTokenTime, isStreaming }: {
           )}
         </div>
       </div>
-      <div className="grid grid-cols-2 gap-3 text-xs">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
         <div className="space-y-1">
           <div className="flex justify-between">
             <span className="text-gray-400">Time to First Token:</span>
@@ -399,7 +400,7 @@ const ResponseCalculator = ({ timing, usage, isStreaming }: {
         <span className="text-xs font-medium text-gray-300">Response Metrics</span>
         <Zap className="w-3 h-3 text-blue-primary" />
       </div>
-      <div className="grid grid-cols-2 gap-3 text-xs">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
         <div className="space-y-1">
           <div className="flex justify-between">
             <span className="text-gray-400">Time to First Token:</span>
@@ -443,12 +444,12 @@ const AssistantMessage = memo(({ message, onCopy }: { message: Message; onCopy: 
 
   return (
     <div className="flex justify-start mb-4">
-      <div className="max-w-[85%] lg:max-w-[75%]">
-        <div className="bg-dark-300 text-white px-4 py-3 rounded-2xl rounded-bl-md border border-dark-200/50">
+      <div className="max-w-[90%] sm:max-w-[85%] lg:max-w-[75%]">
+        <div className="bg-dark-300 text-white px-3 sm:px-4 py-3 rounded-2xl rounded-bl-md border border-dark-200/50">
           <div className="flex items-start justify-between mb-2">
-            <div className="flex items-center space-x-2">
+            <div className="flex flex-col sm:flex-row sm:items-center space-y-1 sm:space-y-0 sm:space-x-2 flex-1 min-w-0">
               <span className="text-xs text-blue-primary font-medium">{message.model}</span>
-              <span className="text-xs text-gray-400">•</span>
+              <span className="hidden sm:inline text-xs text-gray-400">•</span>
               <span className="text-xs text-gray-400 capitalize">{message.responseType}</span>
               {message.isStreaming && (
                 <div className="flex items-center space-x-1">
@@ -457,7 +458,7 @@ const AssistantMessage = memo(({ message, onCopy }: { message: Message; onCopy: 
                 </div>
               )}
             </div>
-            <button onClick={handleCopy} className="p-1 hover:bg-dark-500 rounded" title="Copy response">
+            <button onClick={handleCopy} className="p-1 hover:bg-dark-500 rounded flex-shrink-0" title="Copy response">
               {copied ? <Check className="w-4 h-4 text-green-400" /> : <Copy className="w-4 h-4 text-gray-400 hover:text-white" />}
             </button>
           </div>
@@ -477,8 +478,8 @@ AssistantMessage.displayName = 'AssistantMessage';
 
 const TypingIndicator = memo(({ model }: { model: string }) => (
   <div className="flex justify-start mb-4">
-    <div className="max-w-[85%] lg:max-w-[75%]">
-      <div className="bg-dark-300 text-white px-4 py-3 rounded-2xl rounded-bl-md border border-dark-200/50">
+    <div className="max-w-[90%] sm:max-w-[85%] lg:max-w-[75%]">
+      <div className="bg-dark-300 text-white px-3 sm:px-4 py-3 rounded-2xl rounded-bl-md border border-dark-200/50">
         <div className="flex items-center gap-3">
           <div className="flex space-x-1">
             <div className="w-2 h-2 bg-blue-primary rounded-full"></div>
@@ -637,16 +638,41 @@ JsonResponseViewer.displayName = 'JsonResponseViewer';
 
 export default function MainGeneration() {
   const [messages, setMessages] = useState<Message[]>([]);
-  const [selectedModel, setSelectedModel] = useState<OpenRouterModel | null>(null);
+  const [selectedModel, setSelectedModel] = useState<OpenRouterModel | null>(() => {
+    // Set Gemini 2.5 Flash as default immediately
+    return {
+      id: 'open-router/gemini-2.5-flash',
+      name: 'Gemini 2.5 Flash',
+      description: 'Google\'s latest Gemini model with enhanced capabilities',
+      context_length: 1000000,
+      pricing: {
+        prompt: '$0.000075',
+        completion: '$0.0003'
+      },
+      top_provider: {
+        context_length: 1000000,
+        pricing: {
+          prompt: '$0.000075',
+          completion: '$0.0003'
+        }
+      },
+      per_request_limits: {
+        prompt_tokens: 1000000,
+        completion_tokens: 8192
+      }
+    };
+  });
   const [availableModels, setAvailableModels] = useState<OpenRouterModel[]>([]);
   const [responseType, setResponseType] = useState<'streaming' | 'text'>('streaming');
   const [isModelSelectorOpen, setIsModelSelectorOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [isTyping, setIsTyping] = useState(false);
-  const [isConnected, setIsConnected] = useState(false);
+  const [isConnected, setIsConnected] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [abortController, setAbortController] = useState<AbortController | null>(null);
   const [currentApiResponse, setCurrentApiResponse] = useState<ApiResponseData | null>(null);
+  const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
+  const [isMobile, setIsMobile] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   const scrollToBottom = useCallback(() => {
@@ -654,6 +680,36 @@ export default function MainGeneration() {
   }, []);
   
   useEffect(() => scrollToBottom(), [messages, isTyping, scrollToBottom]);
+
+  // Mobile detection and responsive behavior
+  useEffect(() => {
+    const checkMobile = () => {
+      setIsMobile(window.innerWidth < 1024); // lg breakpoint
+    };
+    
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    return () => window.removeEventListener('resize', checkMobile);
+  }, []);
+
+  // Close mobile sidebar when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (isMobile && isMobileSidebarOpen) {
+        const sidebar = document.getElementById('mobile-sidebar');
+        const toggleButton = document.getElementById('mobile-sidebar-toggle');
+        if (sidebar && !sidebar.contains(event.target as Node) && 
+            toggleButton && !toggleButton.contains(event.target as Node)) {
+          setIsMobileSidebarOpen(false);
+        }
+      }
+    };
+
+    if (isMobileSidebarOpen) {
+      document.addEventListener('mousedown', handleClickOutside);
+      return () => document.removeEventListener('mousedown', handleClickOutside);
+    }
+  }, [isMobileSidebarOpen, isMobile]);
 
   // ===========================
   // INITIALIZATION
@@ -663,19 +719,20 @@ export default function MainGeneration() {
     const initializeChat = async () => {
       try {
         setError(null);
-        console.log('Initializing chat service...');
+        console.log('Loading available models...');
         
         // Load models directly from OpenRouterService (no API call needed)
         const openRouterService = new OpenRouterService();
         const models = await openRouterService.getModels();
         
         setAvailableModels(models);
-        setIsConnected(true); // Always connected since we have hardcoded models
         
-        if (!selectedModel && models.length > 0) {
-          const preferredModelIds = ['open-router/gemini-2.5-flash', 'open-router/gemini-2.0-flash-001', 'open-router/gpt-5', 'open-router/llama-4-maverick'];
-          const defaultModel = models.find(model => preferredModelIds.includes(model.id)) || models[0];
-          setSelectedModel(defaultModel);
+        // Update the selected model with the actual model data if it exists in the loaded models
+        if (models.length > 0) {
+          const actualModel = models.find(model => model.id === 'open-router/gemini-2.5-flash');
+          if (actualModel) {
+            setSelectedModel(actualModel);
+          }
         }
         
         console.log('Chat service initialized with', models.length, 'models');
@@ -686,7 +743,7 @@ export default function MainGeneration() {
       }
     };
     initializeChat();
-  }, [selectedModel]);
+  }, []); // Remove selectedModel dependency to prevent re-initialization
 
   // ===========================
   // HANDLERS
@@ -965,31 +1022,13 @@ export default function MainGeneration() {
 
   return (
     <div className="w-full bg-dark-100 flex flex-col h-screen overflow-hidden">
-      {/* Navigation Header */}
-      <nav className="px-6 py-4 bg-dark-100 border-b border-dark-400/30">
-        <div className="flex items-center justify-between">
-          <Link 
-            href="/"
-            className="flex items-center space-x-2 text-gray-300 hover:text-white transition-colors"
-          >
-            <Home className="w-5 h-5" />
-            <span className="font-medium">Back to Home</span>
-          </Link>
-          <div className="flex items-center space-x-2">
-            <div className="w-6 h-6 bg-blue-primary rounded-lg flex items-center justify-center">
-              <Sparkles className="w-4 h-4 text-white" />
-            </div>
-            <span className="text-lg font-semibold text-white">SuperWizard Chat</span>
-          </div>
-          <div className="w-24"></div> {/* Spacer for centering */}
-        </div>
-      </nav>
-
-      <div className="flex-1 flex overflow-hidden">
-        <div className="w-2/3 flex flex-col overflow-hidden border-r border-dark-400/30">
-          <div className="px-6 py-4 bg-dark-100 border-b border-dark-400/30">
-            <div className="flex flex-col lg:flex-row gap-4 items-start lg:items-center justify-between">
-              <div className="flex-1 w-full lg:max-w-md">
+      <div className="flex-1 flex overflow-hidden relative">
+        {/* Main Chat Area */}
+        <div className={`flex flex-col overflow-hidden ${isMobile ? 'w-full' : 'w-2/3 border-r border-dark-400/30'}`}>
+          {/* Header */}
+          <div className="px-3 sm:px-6 py-4 bg-dark-100 border-b border-dark-400/30">
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex-1 w-full max-w-md">
                 <ModelSelector
                   selectedModel={selectedModel}
                   onModelChange={setSelectedModel}
@@ -999,30 +1038,46 @@ export default function MainGeneration() {
                 />
               </div>
               
-              <div className="flex items-center gap-4">
+              {/* Mobile API Panel Toggle */}
+              {isMobile && (
+                <button
+                  id="mobile-sidebar-toggle"
+                  onClick={() => setIsMobileSidebarOpen(!isMobileSidebarOpen)}
+                  className="ml-3 p-2 bg-dark-300 hover:bg-dark-400 text-gray-300 hover:text-white rounded-lg transition-colors"
+                  title="Toggle API Response Panel"
+                >
+                  <PanelRight className="w-5 h-5" />
+                </button>
+              )}
+            </div>
+            
+            {/* Controls Row */}
+            <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-center justify-between">
+              <div className="flex items-center gap-3">
                 <ResponseTypeSelector responseType={responseType} onResponseTypeChange={setResponseType} />
                 <button
                   onClick={handleClearChat}
-                  className="flex items-center space-x-2 px-5 py-2.5 bg-dark-300 hover:bg-dark-400 text-gray-300 hover:text-white rounded-xl"
+                  className="flex items-center space-x-2 px-4 py-2 bg-dark-300 hover:bg-dark-400 text-gray-300 hover:text-white rounded-xl text-sm"
                 >
                   <RefreshCw className="w-4 h-4" />
-                  <span className="text-sm font-medium">New Chat</span>
+                  <span className="font-medium">New Chat</span>
                 </button>
               </div>
             </div>
             
             {error && (
-              <div className="mt-4 p-4 bg-red-900/20 border border-red-500/30 rounded-xl">
+              <div className="mt-4 p-3 bg-red-900/20 border border-red-500/30 rounded-xl">
                 <div className="flex items-center space-x-3">
-                  <AlertCircle className="w-5 h-5 text-red-400" />
+                  <AlertCircle className="w-4 h-4 text-red-400" />
                   <span className="text-sm text-red-300 font-medium">{error}</span>
                 </div>
               </div>
             )}
           </div>
 
+          {/* Messages Area */}
           <div className="flex-1 overflow-y-auto scrollbar-thin scrollbar-thumb-gray-600 scrollbar-track-gray-800">
-            <div className="p-4 space-y-4 min-h-full">
+            <div className="p-3 sm:p-4 space-y-4 min-h-full">
               <MessageList 
                 messages={messages}
                 isTyping={isTyping && !!selectedModel}
@@ -1032,24 +1087,64 @@ export default function MainGeneration() {
               <div ref={messagesEndRef} />
             </div>
           </div>
-          <div className="px-4 pt-4 pb-4">
+          
+          {/* Input Area */}
+          <div className="px-3 sm:px-4 pt-4 pb-4">
             <div className="max-w-4xl mx-auto">
               <MessageInput
                 onSendMessage={handleSendMessage}
                 onStopGeneration={handleStopGeneration}
                 isLoading={isLoading}
                 isGenerating={isLoading || isTyping}
-                placeholder={selectedModel ? `Message ${selectedModelDisplayName}...` : "Select a model to start..."}
+                placeholder={selectedModel ? `Message ${selectedModelDisplayName}...` : "Loading model..."}
               />
             </div>
           </div>
         </div>
 
-        <div className="w-1/3 bg-dark-200/50 border-l border-dark-400/30">
-          <JsonResponseViewer responseData={currentApiResponse} isStreaming={isLoading || isTyping} />
-        </div>
+        {/* Desktop API Panel */}
+        {!isMobile && (
+          <div className="w-1/3 bg-dark-200/50 border-l border-dark-400/30">
+            <JsonResponseViewer responseData={currentApiResponse} isStreaming={isLoading || isTyping} />
+          </div>
+        )}
+
+        {/* Mobile API Panel Overlay */}
+        {isMobile && (
+          <>
+            {/* Backdrop */}
+            {isMobileSidebarOpen && (
+              <div 
+                className="fixed inset-0 bg-black/50 z-40"
+                onClick={() => setIsMobileSidebarOpen(false)}
+              />
+            )}
+            
+            {/* Sidebar */}
+            <div
+              id="mobile-sidebar"
+              className={`fixed top-0 right-0 h-full w-80 sm:w-96 bg-dark-200 border-l border-dark-400/30 z-50 transform transition-transform duration-300 ease-in-out ${
+                isMobileSidebarOpen ? 'translate-x-0' : 'translate-x-full'
+              }`}
+            >
+              <div className="flex items-center justify-between p-4 border-b border-dark-400/30">
+                <h3 className="text-lg font-semibold text-white">API Response</h3>
+                <button
+                  onClick={() => setIsMobileSidebarOpen(false)}
+                  className="p-2 hover:bg-dark-300 rounded-lg transition-colors"
+                >
+                  <X className="w-5 h-5 text-gray-400" />
+                </button>
+              </div>
+              <div className="h-[calc(100%-73px)]">
+                <JsonResponseViewer responseData={currentApiResponse} isStreaming={isLoading || isTyping} />
+              </div>
+            </div>
+          </>
+        )}
       </div>
 
+      {/* Connection Status */}
       <div className="fixed bottom-4 right-4 z-50">
         <div className="flex items-center space-x-2 px-3 py-2 bg-dark-300/90 border border-dark-400/50 rounded-lg">
           <div className={`w-2 h-2 rounded-full ${isConnected ? 'bg-green-500' : 'bg-red-500'}`}></div>

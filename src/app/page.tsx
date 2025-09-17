@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { ArrowRight, Sparkles, MessageSquare, Code } from "lucide-react";
+import { ArrowRight, MessageSquare } from "lucide-react";
 
 export default function Home() {
   return (
@@ -69,10 +69,10 @@ export default function Home() {
                   <span className="text-purple-400">const</span> result = <span className="text-blue-400">streamText</span>({'{'}
                 </div>
                 <div className="text-white ml-4">
-                  model: <span className="text-green-400">'openai/gpt-5'</span>,
+                  model: <span className="text-green-400">&apos;openai/gpt-5&apos;</span>,
                 </div>
                 <div className="text-white ml-4">
-                  prompt: <span className="text-green-400">'Why is the sky blue?'</span>
+                  prompt: <span className="text-green-400">&apos;Why is the sky blue?&apos;</span>
                 </div>
                 <div className="text-white ml-4">{'}'})</div>
               </div>
